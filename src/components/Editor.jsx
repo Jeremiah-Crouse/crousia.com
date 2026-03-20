@@ -65,10 +65,11 @@ function AutoSavePlugin() {
     const save = () => {
       editor.getEditorState().read(() => {
         const json = editor.getEditorState().toJSON();
+        const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
         fetch("/api/archive-today", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ content: JSON.stringify(json) }),
+          body: JSON.stringify({ content: JSON.stringify(json), date: today }),
         }).catch((err) => console.error("Save failed", err));
       });
     };

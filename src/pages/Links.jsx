@@ -4,6 +4,7 @@ const linkItems = [
   { name: 'KINGDOM', url: 'https://kingdom.crousia.com' },
   { name: 'RESUMES', url: 'https://resumes.crousia.com' },
   { name: 'PRINCESS', url: 'https://princess.crousia.com' },
+  { name: 'PRINCE', url: 'https://prince.crousia.com' },
   { name: 'LOTTERY', url: 'https://lottery.crousia.com' },
   { name: 'ECHAD', url: 'https://echad.mooo.com' },
   { name: 'LAB', url: 'https://lab.crousia.com' },

@@ -1,7 +1,7 @@
 // src/components/Nav.jsx
 import React, { useContext } from 'react';
 import { UserContext } from '../context/UserContext';
-import { clearSharedData } from '../utils/collaboration';
+import { clearSharedData, isAdmin } from '../utils/collaboration';
 
 export default function Nav({ currentView, setView }) {
   // We assume UserContext now provides { name, handleLogout }
@@ -22,8 +22,8 @@ export default function Nav({ currentView, setView }) {
         <a className={currentView === 'log' ? 'active' : ''} onClick={() => setView('log')}>LOG</a>
         <a className={currentView === 'links' ? 'active' : ''} onClick={() => setView('links')}>LINKS</a>
         
-        {/* The simple Logout link */}
-        {name && name !== "guest" && (
+        {/* Only show logout for admin domain */}
+        {isAdmin() && (
           <a onClick={performLogout} style={{ cursor: 'pointer' }}>LOGOUT</a>
         )}
       </div>

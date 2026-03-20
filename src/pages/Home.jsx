@@ -1,13 +1,8 @@
 // src/pages/Home.jsx
-import React, { useEffect } from 'react';
+import React from 'react';
 import Editor from '../components/Editor';
-import { checkAndArchive } from '../utils/archive';
 
 export default function Home() {
-  useEffect(() => {
-    checkAndArchive();
-  }, []);
-
   return (
     <div className="container">
       <h1>The Daily Thoughts</h1>

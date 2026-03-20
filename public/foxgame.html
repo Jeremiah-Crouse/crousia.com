@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fox on the Hill</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #1a0a2e;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    font-family: 'Georgia', serif;
+    overflow: hidden;
+  }
+  #game-wrapper {
+    position: relative;
+    width: 800px;
+  }
+  canvas {
+    display: block;
+    cursor: crosshair;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    background: #87ceeb;
+  }
+  #hint {
+    text-align: center;
+    color: rgba(255,220,140,0.7);
+    font-size: 13px;
+    margin-top: 12px;
+    letter-spacing: 0.08em;
+  }
+</style>
+</head>
+<body>
+<div id="game-wrapper">
+  <canvas id="gameCanvas" width="800" height="480"></canvas>
+  <div id="hint">click to move · the fox follows the slope</div>
+</div>
+
+<script>
+const canvas = document.getElementById('gameCanvas');
+const ctx = canvas.getContext('2d');
+
+// --- Sprite Configuration ---
+const COLS = 4;
+const ROWS = 4;
+let frameW = 0;
+let frameH = 0;
+const spriteSheet = new Image();
+
+// IMPORTANT: Ensure this path is correct relative to your HTML file
+spriteSheet.src = 'sprite-sheet-2.png'; 
+
+// --- Terrain Function ---
+function groundY(x) {
+  const W = canvas.width;
+  const t = x / W;
+  const base = 360;      
+  const peak = 180;      
+  const hill = Math.cos((t - 0.45) * Math.PI * 1.2);
+  return base - Math.max(0, hill) * (base - peak);
+}
+
+// --- Fox State ---
+const fox = {
+  x: 100,
+  frame: 0,
+  frameTimer: 0,
+  frameDuration: 50, 
+  targetX: null,
+  speed: 220,          
+  moving: false,
+  facingRight: true,
+};
+
+let lastTime = null;
+
+// --- Draw Functions ---
+function drawSky() {
+  const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  grad.addColorStop(0, '#4a90d9');
+  grad.addColorStop(0.6, '#87ceeb');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+}
+
+function drawHill() {
+  ctx.beginPath();
+  ctx.moveTo(0, canvas.height);
+  for (let x = 0; x <= canvas.width; x += 2) {
+    ctx.lineTo(x, groundY(x));
+  }
+  ctx.lineTo(canvas.width, canvas.height);
+  ctx.fillStyle = '#4cae4c';
+  ctx.fill();
+  
+  ctx.strokeStyle = '#5cb85c';
+  ctx.lineWidth = 4;
+  ctx.stroke();
+}
+
+function drawFox(dt) {
+  if (!frameW) return;
+
+  const col = fox.frame % COLS;
+  const row = Math.floor(fox.frame / COLS);
+  
+  const drawScale = 0.5;
+  const drawW = frameW * drawScale;
+  const drawH = frameH * drawScale;
+  const y = groundY(fox.x);
+
+  const dx = 4;
+  const slope = Math.atan2(groundY(fox.x + dx) - groundY(fox.x - dx), dx * 2);
+
+  ctx.save();
+  ctx.translate(fox.x, y);
+  ctx.rotate(slope);
+
+  // Shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.1)';
+  ctx.beginPath();
+  ctx.ellipse(0, -2, 25, 6, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  if (!fox.facingRight) ctx.scale(-1, 1);
+
+  ctx.drawImage(
+    spriteSheet,
+    col * frameW, row * frameH, frameW, frameH,
+    -drawW / 2, -drawH + 12, 
+    drawW, drawH
+  );
+  ctx.restore();
+
+  if (fox.moving) {
+    fox.frameTimer += dt;
+    if (fox.frameTimer >= fox.frameDuration) {
+      fox.frameTimer = 0;
+      fox.frame = (fox.frame + 1) % 16;
+    }
+  } else {
+    fox.frame = 0;
+  }
+}
+
+function update(dt) {
+  if (fox.targetX !== null) {
+    const diff = fox.targetX - fox.x;
+    if (Math.abs(diff) < 5) {
+      fox.moving = false;
+      fox.targetX = null;
+    } else {
+      fox.moving = true;
+      fox.facingRight = diff > 0;
+      fox.x += Math.sign(diff) * fox.speed * (dt / 1000);
+    }
+  }
+}
+
+function loop(ts) {
+  const dt = lastTime ? ts - lastTime : 16;
+  lastTime = ts;
+
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawSky();
+  drawHill();
+  update(dt);
+  drawFox(dt);
+
+  requestAnimationFrame(loop);
+}
+
+// --- Start Game ---
+spriteSheet.onload = () => {
+  frameW = spriteSheet.width / COLS;
+  frameH = spriteSheet.height / ROWS;
+  requestAnimationFrame(loop);
+};
+
+// Error handling for local file loading
+spriteSheet.onerror = () => {
+  console.error("Could not load sprite-sheet-2.png. Ensure the file is in the same folder as this HTML file.");
+};
+
+canvas.addEventListener('mousedown', e => {
+  const rect = canvas.getBoundingClientRect();
+  fox.targetX = (e.clientX - rect.left) * (canvas.width / rect.width);
+});
+</script>
+</body>
+</html>

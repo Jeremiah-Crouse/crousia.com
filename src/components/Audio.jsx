@@ -10,7 +10,11 @@ export default function Audio() {
         audioRef.current.pause();
         setIsPlaying(false);
       } else {
-        audioRef.current.play().catch(() => {});
+        // The .play() promise is handled to prevent errors 
+        // if the user hasn't interacted with the DOM yet.
+        audioRef.current.play().catch((error) => {
+          console.log("Playback failed:", error);
+        });
         setIsPlaying(true);
       }
     }
@@ -18,11 +22,15 @@ export default function Audio() {
 
   return (
     <div className="audio-player">
-      <audio ref={audioRef} src="/Deepdeep.m4a" onEnded={() => setIsPlaying(false)} />
+      <audio 
+        ref={audioRef} 
+        src="/113.m4a" 
+        loop // This attribute ensures the music restarts automatically
+      />
       <button className="audio-toggle" onClick={togglePlay}>
         {isPlaying ? '⏸' : '▶'}
       </button>
-      <span className="audio-label">Deepdeep</span>
+      <span className="audio-label">Music</span>
     </div>
   );
 }

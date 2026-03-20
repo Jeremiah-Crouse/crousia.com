@@ -46,11 +46,13 @@ app.use(express.json());
 // 3. API Routes
 app.post('/api/archive-today', (req, res) => {
   const content = req.body?.content || '';
-  const today = new Date().toISOString().split('T')[0];
+  
+  // Use client's date if provided, otherwise use server's local timezone
+  const today = req.body?.date || new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
   const archivePath = path.join(ARCHIVES_DIR, `${today}.json`);
   
   fs.writeFileSync(archivePath, content);
-  res.json({ success: true, length: content.length });
+  res.json({ success: true, length: content.length, date: today });
 });
 
 app.get('/api/archives', (req, res) => {
