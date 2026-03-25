@@ -62,6 +62,7 @@ export default function Nav({ currentView, setView }) {
     { label: 'HOME', view: 'home' },
     { label: 'ARCHIVE', view: 'log' },
     { label: 'LINKS', view: 'links' },
+    { label: 'ABOUT', view: 'about' },
   ];
 
   if (isMobile) {

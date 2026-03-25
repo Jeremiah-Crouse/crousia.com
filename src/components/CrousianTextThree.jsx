@@ -11,7 +11,7 @@ function estimateTextAspect(text) {
     if ("ilI1.,:;!'|".includes(char)) w = 0.2
     else if ("mwMW".includes(char)) w = 0.58
     else if (char === " ") w = 0.25
-    else if (char === "🐍") w = 0.7
+    else if (char === "🐍") w = 0.5
     else if (/[A-Z]/.test(char)) w = 0.5
     totalWidth += w
   }
@@ -155,7 +155,7 @@ const MoltenGoldText = forwardRef(function MoltenGoldText({ text, scale, onReady
     if ("ilI1.,:;!'|".includes(char)) w = 0.2
     else if ("mwMW".includes(char)) w = 0.58
     else if (char === " ") w = 0.25
-    else if (char === "🐍") w = 0.7
+    else if (char === "🐍") w = 0.5
     else if (/[A-Z]/.test(char)) w = 0.5
     
     const pos = totalWidth + w / 2

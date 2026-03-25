@@ -5,10 +5,12 @@ const IMAGE_MAP = {
   'HOME': '/three-renders/HOME.png',
   'ARCHIVE': '/three-renders/ARCHIVE.png',
   'LINKS': '/three-renders/LINKS.png',
+  'ABOUT': '/three-renders/ABOUT.png',
   'LOGOUT': '/three-renders/LOGOUT.png',
   'DAILY WORDS': '/three-renders/DAILY_WORDS.png',
   'SUBDOMAINS': '/three-renders/SUBDOMAINS.png',
   'THE ARCHIVE': '/three-renders/THE_ARCHIVE.png',
+  'CROUSIAN': '/three-renders/CROUSIAN.png',
 };
 
 export default function ImageCrousianText({ text = "CROU🐍IA", size = 1, logo = false, nav = false, style = {}, ...props }) {
