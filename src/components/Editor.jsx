@@ -1,5 +1,6 @@
 // src/components/Editor.jsx
 import React, { useMemo, useEffect, useContext } from "react";
+import "./Editor.css";
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
 import { RichTextPlugin } from "@lexical/react/LexicalRichTextPlugin";
 import { ContentEditable } from "@lexical/react/LexicalContentEditable";

@@ -1,4 +1,5 @@
 import React from 'react';
+import CrousianText from '../components/CrousianText';
 
 const linkItems = [
   { name: 'KINGDOM', url: 'https://kingdom.crousia.com' },
@@ -14,7 +15,7 @@ const linkItems = [
 export default function Links() {
   return (
     <div className="links-container">
-      <h1>THE REALM</h1>
+      <CrousianText text="SUBDOMAINS" size={0.7} />
       <div className="links-grid">
         {linkItems.map((link) => (
           <a 

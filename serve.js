@@ -41,8 +41,6 @@ provider.on('sync', (isSynced) => {
 
 app.use(express.json());
 
-app.use(express.json());
-
 // 3. API Routes
 app.post('/api/archive-today', (req, res) => {
   const content = req.body?.content || '';

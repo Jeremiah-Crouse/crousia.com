@@ -2,10 +2,14 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
 export default defineConfig({
-  base: '/',   // <-- ADD THIS
+  base: '/',
+
+  define: {
+    'import.meta.env.USE_IMAGE_TEXT': JSON.stringify(process.env.USE_IMAGE_TEXT || 'false')
+  },
 
   optimizeDeps: {
-    include: ['yjs', 'y-websocket', '@lexical/yjs']
+    include: ['yjs', 'y-websocket', '@lexical/yjs', 'prismjs']
   },
 
   plugins: [react()],
@@ -19,11 +23,22 @@ export default defineConfig({
   },
 
   build: {
+    chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
-        entryFileNames: 'assets/[name]-[hash].js',
-        chunkFileNames: 'assets/[name]-[hash].js',
-        assetFileNames: 'assets/[name]-[hash].[ext]'
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('three') || id.includes('@react-three')) {
+              return 'three-vendor';
+            }
+            if (id.includes('lexical') || id.includes('@lexical')) {
+              return 'lexical-vendor';
+            }
+            if (id.includes('yjs') || id.includes('y-websocket')) {
+              return 'yjs-vendor';
+            }
+          }
+        }
       }
     }
   }

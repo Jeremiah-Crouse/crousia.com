@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, lazy, Suspense } from 'react';
 import Nav from './components/Nav';
 import Audio from './components/Audio';
-import Home from './pages/Home';
-import Log from './pages/Log';
-import Links from './pages/Links';
 import SplashScreen from './components/SplashScreen';
 import './App.css';
+
+// Lazy load pages to split the bundle
+const Home = lazy(() => import('./pages/Home'));
+const Log = lazy(() => import('./pages/Log'));
+const Links = lazy(() => import('./pages/Links'));
 
 export default function App() {
   const [view, setView] = useState('home');
@@ -20,9 +22,11 @@ export default function App() {
         <Nav currentView={view} setView={setView} />
         <Audio />
         <main className="container">
-          {view === 'home' && <Home />}
-          {view === 'log' && <Log />}
-          {view === 'links' && <Links />}
+          <Suspense fallback={<div className="loading">Loading...</div>}>
+            {view === 'home' && <Home />}
+            {view === 'log' && <Log />}
+            {view === 'links' && <Links />}
+          </Suspense>
         </main>
       </div>
     </>

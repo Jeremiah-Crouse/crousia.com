@@ -2,28 +2,42 @@ import React, { useState, useEffect } from 'react';
 
 export default function SplashScreen({ onComplete }) {
   const [progress, setProgress] = useState(0);
+  const [imageLoaded, setImageLoaded] = useState(false);
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const imageSrc = isMobile ? '/CROUSIA-mobile.jpeg' : '/CROUSIA.jpeg';
+
+  useEffect(() => {
+    const img = new Image();
+    img.src = imageSrc;
+    img.onload = () => setImageLoaded(true);
+    img.onerror = () => setImageLoaded(true);
+  }, [imageSrc]);
 
   useEffect(() => {
     const interval = setInterval(() => {
       setProgress((prev) => {
-        if (prev >= 100) {
+        const maxProgress = imageLoaded ? 100 : 80;
+        if (prev >= maxProgress) {
           clearInterval(interval);
-          setTimeout(onComplete, 500);
-          return 100;
+          if (imageLoaded) {
+            setTimeout(onComplete, 500);
+          }
+          return maxProgress;
         }
         return prev + 2;
       });
     }, 40);
 
     return () => clearInterval(interval);
-  }, [onComplete]);
+  }, [onComplete, imageLoaded]);
 
   return (
     <div className="splash-screen">
       <img 
-        src="/CROUSIA.jpeg" 
+        src={imageSrc} 
         alt="Crousia" 
         className="splash-image" 
+        style={{ opacity: imageLoaded ? 1 : 0.5 }}
       />
       <div className="splash-progress-container">
         <div className="splash-progress-bar" style={{ width: `${progress}%` }} />

@@ -6,18 +6,39 @@
   position: relative;
   line-height: 1.6;
   font-weight: 400;
-  border: 1px solid #ddd;
+  border: 1px solid var(--gold);
   border-radius: 4px;
-  background: #fff;
+  background: rgba(15, 15, 26, 0.6);
 }
 
 .editor-input {
   min-height: 400px;
   resize: none;
   font-size: 16px;
-  caret-color: #333;
+  font-family: 'Cormorant Garamond', Georgia, serif;
+  font-weight: 400;
+  caret-color: var(--text-primary);
   padding: 15px;
   outline: none;
+}
+
+.editor-input i,
+.editor-input em,
+.editor-input .editor-italic,
+.editor-input [style*="italic"],
+span[style*="font-style: italic"],
+[data-italic="true"],
+i, em {
+  font-style: italic !important;
+  font-family: 'Cormorant Garamond', Georgia, serif !important;
+}
+
+.editor-input b,
+.editor-input strong,
+.editor-input .editor-bold,
+.editor-input [style*="font-weight: 700"],
+span[style*="font-weight: 700"] {
+  font-weight: 700 !important;
 }
 
 .editor-placeholder {
@@ -32,46 +53,35 @@
 }
 
 /* Markdown Rendering Styles */
-.editor-bold, .text-gold.editor-bold, .text-purple.editor-bold { font-weight: bold !important; }
+.editor-bold, .text-gold.editor-bold, .text-purple.editor-bold { font-weight: 700 !important; }
 .editor-italic, .text-gold.editor-italic, .text-purple.editor-italic { font-style: italic !important; }
 .editor-strikethrough, .text-gold.editor-strikethrough, .text-purple.editor-strikethrough { text-decoration: line-through; }
-.editor-code, .text-gold.editor-code, .text-purple.editor-code { font-family: monospace; background: #f0f0f0; padding: 2px 4px; border-radius: 3px; }
+.editor-code, .text-gold.editor-code, .text-purple.editor-code { font-family: monospace; background: rgba(255,255,255,0.1); padding: 2px 4px; border-radius: 3px; }
 .editor-h1 { font-size: 24px; font-weight: 700; margin: 10px 0; }
 .editor-ul { padding-left: 20px; list-style-type: disc; }
 
 /* Fix for bold+italic */
 .editor-bold.editor-italic {
-  font-weight: bold !important;
+  font-weight: 700 !important;
   font-style: italic !important;
 }
 
 /* Horizontal rule */
-editor-hr {
+.editor-hr {
   border: none;
-  border-top: 2px solid #ccc;
+  border-top: 1px solid var(--gold);
   margin: 20px 0;
 }
 
-/* Force italic to work regardless of other styles */
-.editor-input span[style*="font-style"] {
-  font-style: inherit !important;
-}
-
-.text-gold, .text-purple {
-  font-weight: normal !important;
-}
-
 /* Color text based on inline style from AuthorshipColorPlugin */
-.editor-input span[style*="color: #FFD700"] {
-  color: #FFD700 !important;
+.editor-input span[style*="color: #FFD700"],
+.text-gold {
+  color: var(--gold) !important;
 }
 
-.editor-input span[style*="color: #A020F0"] {
+.editor-input span[style*="color: #A020F0"],
+.text-purple {
   color: #A020F0 !important;
-}
-
-.text-gold strong, .text-purple strong {
-  font-weight: bold !important;
 }
 
 /* Remote User Cursors */
@@ -90,7 +100,6 @@ editor-hr {
   top: -1.4em;
   left: -1px;
   font-size: 10px;
-  font-style: normal;
   font-weight: 600;
   line-height: normal;
   user-select: none;
@@ -100,11 +109,8 @@ editor-hr {
   white-space: nowrap;
 }
 
-/* FINAL: Bold+italic must work - ultra specific */
-.editor-bold.editor-italic,
-strong[class="editor-bold editor-italic"],
-strong.editor-bold.editor-italic {
-  font-weight: bold !important;
-  font-style: italic !important;
+/* Placeholder styling */
+.editor-placeholder {
+  color: var(--text-dim) !important;
 }
 

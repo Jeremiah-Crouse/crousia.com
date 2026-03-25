@@ -10,6 +10,7 @@ import { ListNode, ListItemNode } from "@lexical/list";
 import { CodeNode } from "@lexical/code";
 import { LinkNode } from "@lexical/link";
 import { ParagraphNode, TextNode } from "lexical";
+import CrousianText from '../components/CrousianText';
 
 function ArchiveEntry({ content }) {
   const json = typeof content === 'string' ? JSON.parse(content) : content;
@@ -74,7 +75,7 @@ export default function Log() {
 
   return (
     <div className="container">
-      <h1>THE ARCHIVE</h1>
+      <CrousianText text="THE ARCHIVE" size={0.7} />
       {logs.length === 0 ? <p>No archives yet.</p> : (
         logs.map((log) => (
           <div key={log.date} className="archive-box">

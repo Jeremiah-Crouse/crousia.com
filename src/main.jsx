@@ -3,6 +3,8 @@ import ReactDOM from "react-dom/client";
 import App from "./App";
 import "./index.css";
 import GateKeeper from "./components/GateKeeper";
+import prism from "prismjs";
+window.Prism = prism;
 
 // Simple error boundary so React crashes show on screen
 class ErrorBoundary extends React.Component {
