@@ -4,7 +4,7 @@ import { UserContext } from '../context/UserContext';
 import { clearSharedData, isAdmin } from '../utils/collaboration';
 import CrousianText from './CrousianText';
 
-const BREAKPOINT = 800;
+const BREAKPOINT = 1200;
 
 export default function Nav({ currentView, setView }) {
   const { handleLogout } = useContext(UserContext);
