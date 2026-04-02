@@ -9,7 +9,8 @@ const linkItems = [
   { name: 'LOTTERY', url: 'https://lottery.crousia.com' },
   { name: 'ECHAD', url: 'https://echad.mooo.com' },
   { name: 'LAB', url: 'https://lab.crousia.com' },
-  { name: 'MUSIC', url: 'https://music.crousia.com' }
+  { name: 'MUSIC', url: 'https://music.crousia.com' },
+  { name: 'VERDIS', url: 'https://verdis.crousia.com' },
 ];
 
 export default function Links() {
