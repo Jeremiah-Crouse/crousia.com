@@ -24,7 +24,7 @@ export default function Audio() {
     <div className="audio-player">
       <audio 
         ref={audioRef} 
-        src="/instrumental2.m4a" 
+        src="/rapping.m4a" 
         loop // This attribute ensures the music restarts automatically
       />
       <button className="audio-toggle" onClick={togglePlay}>
