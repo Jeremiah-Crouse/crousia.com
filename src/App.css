@@ -385,6 +385,16 @@ h1 { color: var(--gold); margin-bottom: 0.5rem; }
   font-size: 0.9em;
 }
 
+.commenter-link {
+  text-decoration: none;
+  transition: opacity 0.2s ease;
+}
+
+.commenter-link:hover {
+  opacity: 0.8;
+  text-decoration: underline;
+}
+
 .comment-header strong {
   color: var(--gold);
 }

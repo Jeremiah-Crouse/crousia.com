@@ -69,7 +69,13 @@ export default function Comments({ date, readonly = false }) {
           {comments.map((c, i) => (
             <li key={i} className="comment-item">
               <div className="comment-header">
-                <strong>{c.name}</strong>
+                {c.email ? (
+                  <a href={`mailto:${c.email}`} className="commenter-link">
+                    <strong>{c.name}</strong>
+                  </a>
+                ) : (
+                  <strong>{c.name}</strong>
+                )}
                 <span className="comment-date">
                   {new Date(c.timestamp).toLocaleString()}
                 </span>
