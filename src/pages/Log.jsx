@@ -11,6 +11,7 @@ import { CodeNode } from "@lexical/code";
 import { LinkNode } from "@lexical/link";
 import { ParagraphNode, TextNode } from "lexical";
 import CrousianText from '../components/CrousianText';
+import Comments from '../components/Comments';
 
 function ArchiveEntry({ content }) {
   const json = typeof content === 'string' ? JSON.parse(content) : content;
@@ -85,6 +86,7 @@ export default function Log() {
             {expanded[log.date] && (
               <div className="doc-content">
                 {log.content && <ArchiveEntry content={log.content} />}
+                <Comments date={log.date} readonly={true} />
               </div>
             )}
           </div>

@@ -12,8 +12,10 @@ const app = express();
 const PORT = 5000;
 const HOST = "0.0.0.0";
 const ARCHIVES_DIR = 'archives';
+const COMMENTS_DIR = 'comments';
 
 if (!fs.existsSync(ARCHIVES_DIR)) fs.mkdirSync(ARCHIVES_DIR, { recursive: true });
+if (!fs.existsSync(COMMENTS_DIR)) fs.mkdirSync(COMMENTS_DIR, { recursive: true });
 
 // 1. The shared document, kept in sync by the provider
 const sharedDoc = new Y.Doc();
@@ -51,6 +53,49 @@ app.post('/api/archive-today', (req, res) => {
   
   fs.writeFileSync(archivePath, content);
   res.json({ success: true, length: content.length, date: today });
+});
+
+app.get('/api/comments/:date', (req, res) => {
+  try {
+    const { date } = req.params;
+    const p = path.join(COMMENTS_DIR, `${date}.json`);
+    if (fs.existsSync(p)) {
+      res.json({ date, comments: JSON.parse(fs.readFileSync(p, 'utf-8')) });
+    } else {
+      res.json({ date, comments: [] });
+    }
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/comments/:date', (req, res) => {
+  try {
+    const { date } = req.params;
+    const { name, email, text } = req.body;
+    if (!name || !text) {
+      return res.status(400).json({ error: 'Name and comment text are required' });
+    }
+
+    const p = path.join(COMMENTS_DIR, `${date}.json`);
+    let comments = [];
+    if (fs.existsSync(p)) {
+      comments = JSON.parse(fs.readFileSync(p, 'utf-8'));
+    }
+
+    const newComment = {
+      name,
+      email: email || '',
+      text,
+      timestamp: new Date().toISOString()
+    };
+
+    comments.push(newComment);
+    fs.writeFileSync(p, JSON.stringify(comments, null, 2));
+    res.json({ success: true, comment: newComment });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
 });
 
 app.get('/api/archives', (req, res) => {
