@@ -8,7 +8,7 @@ import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
 import WebSocket from "ws";
 import multer from "multer";
-import Jimp from "jimp";
+import { Jimp } from "jimp";
 
 const app = express();
 const PORT = 5000;

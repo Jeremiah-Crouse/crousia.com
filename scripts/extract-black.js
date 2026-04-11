@@ -1,4 +1,4 @@
-import Jimp from 'jimp';
+import { Jimp } from 'jimp';
 import path from 'path';
 
 const COLOR_MAP = {
