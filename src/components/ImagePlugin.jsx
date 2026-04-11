@@ -65,8 +65,10 @@ export default function ImagePlugin({ isAdmin, username }) {
       console.error('Upload failed:', err);
       alert('Upload failed');
     }
-    // Reset input
-    e.target.value = '';
+    // Reset input using ref instead of e.target which might be nullified
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
   };
 
   if (!isAdmin) return null;
