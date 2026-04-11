@@ -31,7 +31,7 @@ const UPLOADS_DIR = path.join(__dirname, 'uploads');
   }
 });
 
-// Multer setup using disk storage for reliability on mobile
+// Multer setup using disk storage
 const upload = multer({ dest: UPLOADS_DIR });
 
 const COLOR_MAP = {
@@ -51,13 +51,13 @@ async function processNoteImage(inputPath, outputPath, colorName = 'white') {
   let minX = width, maxX = 0, minY = height, maxY = 0;
   let foundAny = false;
 
+  // Jimp v1 scan
   image.scan(0, 0, width, height, function(x, y, idx) {
     const r = this.bitmap.data[idx + 0];
     const g = this.bitmap.data[idx + 1];
     const b = this.bitmap.data[idx + 2];
     const a = this.bitmap.data[idx + 3];
 
-    // Threshold for dark pixels (handwriting)
     if (r < 80 && g < 80 && b < 80 && a > 0) {
       this.bitmap.data[idx + 0] = targetColor.r;
       this.bitmap.data[idx + 1] = targetColor.g;
@@ -70,7 +70,7 @@ async function processNoteImage(inputPath, outputPath, colorName = 'white') {
       if (y > maxY) maxY = y;
       foundAny = true;
     } else {
-      this.bitmap.data[idx + 3] = 0; // Make everything else transparent
+      this.bitmap.data[idx + 3] = 0;
     }
   });
 
@@ -85,12 +85,18 @@ async function processNoteImage(inputPath, outputPath, colorName = 'white') {
   const right = Math.min(width, maxX + padding);
   const bottom = Math.min(height, maxY + padding);
   
-  image.crop(left, top, right - left, bottom - top);
+  // Jimp v1 crop uses an object
+  image.crop({
+    x: left,
+    y: top,
+    w: right - left,
+    h: bottom - top
+  });
+
   await image.write(outputPath);
   return true;
 }
 
-// Yjs Setup
 const sharedDoc = new Y.Doc();
 const provider = new WebsocketProvider(
   'ws://localhost:1234',
@@ -124,7 +130,6 @@ app.post('/api/upload-note', upload.single('image'), async (req, res) => {
     const success = await processNoteImage(tempPath, publicPath, color);
     
     if (success) {
-      // Ensure dist dir exists and copy
       if (!fs.existsSync(DIST_NOTES_DIR)) fs.mkdirSync(DIST_NOTES_DIR, { recursive: true });
       fs.copyFileSync(publicPath, distPath);
       console.log(`✅ Success: ${fileName}`);
@@ -133,8 +138,10 @@ app.post('/api/upload-note', upload.single('image'), async (req, res) => {
       res.status(400).json({ error: 'No note content detected in image' });
     }
   } catch (e) {
-    console.error('💥 Upload error:', e.message);
-    res.status(500).json({ error: e.message });
+    // Stringify the error properly to avoid [object Object] or inspection crashes
+    const errorDetail = typeof e === 'object' ? JSON.stringify(e, null, 2) : String(e);
+    console.error('💥 Upload error details:', errorDetail);
+    res.status(500).json({ error: e.message || 'Internal Server Error', details: e });
   } finally {
     if (tempPath && fs.existsSync(tempPath)) {
       fs.unlinkSync(tempPath);
@@ -209,7 +216,6 @@ app.use((req, res) => {
   res.sendFile(path.join(__dirname, "dist", "index.html"));
 });
 
-// Safe Error Handler
 app.use((err, req, res, next) => {
   const errMsg = err ? (err.message || String(err)) : 'Unknown Error';
   console.error('🚨 Server Error:', errMsg);
