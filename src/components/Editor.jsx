@@ -146,7 +146,7 @@ export default function Editor() {
         />
         <HistoryPlugin />
         <AutoSavePlugin />
-        <ImagePlugin isAdmin={!readonly} />
+        <ImagePlugin isAdmin={!readonly} username={username} />
         <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
       </div>
     </LexicalComposer>
