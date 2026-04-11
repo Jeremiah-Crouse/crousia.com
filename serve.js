@@ -17,14 +17,15 @@ const ARCHIVES_DIR = 'archives';
 const COMMENTS_DIR = 'comments';
 const PUBLIC_NOTES_DIR = path.join('public', 'notes');
 const DIST_NOTES_DIR = path.join('dist', 'notes');
+const UPLOADS_DIR = 'uploads';
 
 // Ensure all directories exist
-[ARCHIVES_DIR, COMMENTS_DIR, PUBLIC_NOTES_DIR, DIST_NOTES_DIR].forEach(dir => {
+[ARCHIVES_DIR, COMMENTS_DIR, PUBLIC_NOTES_DIR, DIST_NOTES_DIR, UPLOADS_DIR].forEach(dir => {
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
 // Multer for uploads
-const upload = multer({ dest: 'uploads/' });
+const upload = multer({ dest: UPLOADS_DIR });
 
 // Image extraction logic (Node version of extract-black.py)
 const COLOR_MAP = {
@@ -74,7 +75,8 @@ async function processNoteImage(inputPath, outputPath, colorName = 'white') {
   const bottom = Math.min(height, maxY + padding);
   
   image.crop(left, top, right - left, bottom - top);
-  await image.writeAsync(outputPath);
+  // In Jimp v1, write() returns a promise
+  await image.write(outputPath);
   return true;
 }
 
@@ -98,6 +100,8 @@ app.post('/api/upload-note', upload.single('image'), async (req, res) => {
     const file = req.file;
     if (!file) return res.status(400).json({ error: 'No file uploaded' });
 
+    console.log(`Processing upload for ${username}: ${file.originalname}`);
+
     let color = 'white';
     if (username === 'King Jeremiah') color = 'gold';
     if (username === 'Queen Lauren') color = 'purple';
@@ -113,19 +117,20 @@ app.post('/api/upload-note', upload.single('image'), async (req, res) => {
     const success = await processNoteImage(file.path, publicPath, color);
     
     if (success) {
-      // Copy to dist so it's immediately available without a rebuild
+      // Copy to dist so it's immediately available
       fs.copyFileSync(publicPath, distPath);
       
       // Clean up temp upload
       fs.unlinkSync(file.path);
       
+      console.log(`Successfully processed note: ${fileName}`);
       res.json({ success: true, url: `/notes/${fileName}` });
     } else {
       fs.unlinkSync(file.path);
       res.status(400).json({ error: 'No note content detected in image' });
     }
   } catch (e) {
-    console.error('Upload failed:', e);
+    console.error('Upload route failed:', e);
     res.status(500).json({ error: e.message });
   }
 });
@@ -197,11 +202,16 @@ app.get('/api/status', (req, res) => {
 // 4. Static Hosting
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 app.use(express.static(path.join(__dirname, "dist")));
-// Also serve public dir so /notes/... is accessible if dist is missing them
 app.use(express.static(path.join(__dirname, "public")));
 
 app.use((req, res) => {
   res.sendFile(path.join(__dirname, "dist", "index.html"));
+});
+
+// Global error handler to prevent HTML responses for API errors
+app.use((err, req, res, next) => {
+  console.error('Unhandled Server Error:', err);
+  res.status(500).json({ error: err.message || 'Internal Server Error' });
 });
 
 const server = http.createServer(app);
