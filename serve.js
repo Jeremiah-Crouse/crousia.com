@@ -49,7 +49,7 @@ async function processNoteImage(inputPath, outputPath, colorName = 'white') {
   // Enhance image for better extraction
   image.greyscale(); // Convert to black and white
   image.normalize(); // Stretch levels to use full range
-  image.contrast({ val: 0.7 }); // Push grays toward black or white
+  image.contrast(0.7); // Push grays toward black or white (simple number for v1)
   
   const width = image.bitmap.width;
   const height = image.bitmap.height;
