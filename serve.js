@@ -45,6 +45,12 @@ async function processNoteImage(inputPath, outputPath, colorName = 'white') {
   const targetColor = COLOR_MAP[colorName] || COLOR_MAP.white;
   
   const image = await Jimp.read(inputPath);
+  
+  // Enhance image for better extraction
+  image.greyscale(); // Convert to black and white
+  image.normalize(); // Stretch levels to use full range
+  image.contrast({ val: 0.7 }); // Push grays toward black or white
+  
   const width = image.bitmap.width;
   const height = image.bitmap.height;
   
@@ -54,11 +60,11 @@ async function processNoteImage(inputPath, outputPath, colorName = 'white') {
   // Jimp v1 scan
   image.scan(0, 0, width, height, function(x, y, idx) {
     const r = this.bitmap.data[idx + 0];
-    const g = this.bitmap.data[idx + 1];
-    const b = this.bitmap.data[idx + 2];
     const a = this.bitmap.data[idx + 3];
 
-    if (r < 80 && g < 80 && b < 80 && a > 0) {
+    // After greyscale and contrast, dark pixels will be very dark
+    // Threshold 110 is a bit more generous than 80
+    if (r < 110 && a > 0) {
       this.bitmap.data[idx + 0] = targetColor.r;
       this.bitmap.data[idx + 1] = targetColor.g;
       this.bitmap.data[idx + 2] = targetColor.b;
