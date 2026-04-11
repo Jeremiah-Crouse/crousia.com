@@ -10,6 +10,7 @@ import { ListNode, ListItemNode } from "@lexical/list";
 import { CodeNode } from "@lexical/code";
 import { LinkNode } from "@lexical/link";
 import { ParagraphNode, TextNode } from "lexical";
+import { ImageNode } from "../components/ImageNode";
 import CrousianText from '../components/CrousianText';
 import Comments from '../components/Comments';
 
@@ -19,7 +20,17 @@ function ArchiveEntry({ content }) {
   const initialConfig = {
     namespace: "CrousiaArchive",
     editable: false,
-    nodes: [ParagraphNode, TextNode, HeadingNode, QuoteNode, ListNode, ListItemNode, CodeNode, LinkNode],
+    nodes: [
+      ParagraphNode,
+      TextNode,
+      HeadingNode,
+      QuoteNode,
+      ListNode,
+      ListItemNode,
+      CodeNode,
+      LinkNode,
+      ImageNode,
+    ],
     editorState: JSON.stringify(json),
     theme: {
       paragraph: "editor-paragraph",
@@ -27,6 +38,7 @@ function ArchiveEntry({ content }) {
         gold: "text-gold",
         purple: "text-purple",
       },
+      image: "editor-image",
     },
     onError(error) { console.error("Lexical error:", error); }
   };

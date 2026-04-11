@@ -14,6 +14,8 @@ import { HeadingNode, QuoteNode } from "@lexical/rich-text";
 import { ListNode, ListItemNode } from "@lexical/list";
 import { CodeNode } from "@lexical/code";
 import { LinkNode } from "@lexical/link";
+import { ImageNode } from "./ImageNode";
+import ImagePlugin from "./ImagePlugin";
 import {
   getSharedDoc,
   getSharedProvider,
@@ -109,6 +111,7 @@ export default function Editor() {
       ListItemNode,
       CodeNode,
       LinkNode,
+      ImageNode,
     ],
     theme: {
       paragraph: "editor-paragraph",
@@ -116,6 +119,7 @@ export default function Editor() {
         bold: "editor-bold",
         italic: "editor-italic",
       },
+      image: "editor-image",
     },
     onError(error) {
       console.error("Lexical error:", error);
@@ -142,6 +146,7 @@ export default function Editor() {
         />
         <HistoryPlugin />
         <AutoSavePlugin />
+        <ImagePlugin isAdmin={!readonly} />
         <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
       </div>
     </LexicalComposer>
