@@ -14,7 +14,38 @@ export default function ImagePlugin({ isAdmin, username }) {
       throw new Error('ImagePlugin: ImageNode not registered on editor');
     }
 
-    return editor.registerCommand(
+    // Register mutation listener to track deletions
+    // We use a Map to keep track of NodeKey -> URL mapping because once a node is 
+    // destroyed, we can't access its properties anymore.
+    const nodeUrlMap = new Map();
+
+    const unregisterMutation = editor.registerMutationListener(ImageNode, (mutations) => {
+      for (const [nodeKey, mutation] of mutations) {
+        if (mutation === 'created' || mutation === 'updated') {
+          editor.getEditorState().read(() => {
+            const node = editor.getElementByKey(nodeKey); // This is the DOM element
+            // Better: get the Lexical node
+            const lexicalNode = editor._editorState._nodeMap.get(nodeKey);
+            if (lexicalNode && lexicalNode.__src) {
+              nodeUrlMap.set(nodeKey, lexicalNode.__src);
+            }
+          });
+        } else if (mutation === 'destroyed') {
+          const url = nodeUrlMap.get(nodeKey);
+          if (url && url.startsWith('/notes/note-')) {
+            console.log('🧹 Image node destroyed, deleting file:', url);
+            fetch('/api/delete-note', {
+              method: 'DELETE',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url }),
+            }).catch(err => console.error('Failed to delete note file:', err));
+          }
+          nodeUrlMap.delete(nodeKey);
+        }
+      }
+    });
+
+    const unregisterCommand = editor.registerCommand(
       INSERT_IMAGE_COMMAND,
       (payload) => {
         const imageNode = $createImageNode(payload);
@@ -23,6 +54,11 @@ export default function ImagePlugin({ isAdmin, username }) {
       },
       COMMAND_PRIORITY_EDITOR,
     );
+
+    return () => {
+      unregisterMutation();
+      unregisterCommand();
+    };
   }, [editor]);
 
   const onAddImage = () => {

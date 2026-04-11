@@ -17,80 +17,30 @@ const app = express();
 const PORT = 5000;
 const HOST = "0.0.0.0";
 
-// ... existing imports
-
 const ARCHIVES_DIR = path.join(__dirname, 'archives');
 const COMMENTS_DIR = path.join(__dirname, 'comments');
 const PUBLIC_NOTES_DIR = path.join(__dirname, 'public', 'notes');
 const DIST_NOTES_DIR = path.join(__dirname, 'dist', 'notes');
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
 
-// ... existing directory creation and multer setup
-
-async function cleanupUnusedNotes() {
-  console.log("🧹 Starting orphan note cleanup...");
-  try {
-    const referencedNotes = new Set();
-
-    // 1. Scan Archives
-    if (fs.existsSync(ARCHIVES_DIR)) {
-      const files = fs.readdirSync(ARCHIVES_DIR).filter(f => f.endsWith('.json'));
-      for (const file of files) {
-        const content = fs.readFileSync(path.join(ARCHIVES_DIR, file), 'utf-8');
-        // Simple regex to find all note filenames in the JSON blob
-        const matches = content.matchAll(/\/notes\/(note-[\w-]+\.png)/g);
-        for (const match of matches) {
-          referencedNotes.add(match[1]);
-        }
-      }
-    }
-
-    // 2. Scan Shared Doc (Today's Entry)
-    // We stringify the entire Yjs doc structure to find references
-    const docData = JSON.stringify(sharedDoc.toJSON());
-    const liveMatches = docData.matchAll(/\/notes\/(note-[\w-]+\.png)/g);
-    for (const match of liveMatches) {
-      referencedNotes.add(match[1]);
-    }
-
-    console.log(`📌 Found ${referencedNotes.size} referenced notes.`);
-
-    // 3. Clean Directories
-    const cleanDir = (dirPath) => {
-      if (!fs.existsSync(dirPath)) return;
-      const files = fs.readdirSync(dirPath);
-      let deletedCount = 0;
-
-      for (const file of files) {
-        if (!referencedNotes.has(file)) {
-          const filePath = path.join(dirPath, file);
-          const stats = fs.statSync(filePath);
-          const now = Date.now();
-          const ageMinutes = (now - stats.mtimeMs) / (1000 * 60);
-
-          // Only delete if older than 5 minutes (grace period for new uploads)
-          if (ageMinutes > 5) {
-            fs.unlinkSync(filePath);
-            deletedCount++;
-          }
-        }
-      }
-      if (deletedCount > 0) console.log(`🗑️ Deleted ${deletedCount} orphans from ${dirPath}`);
-    };
-
-    cleanDir(PUBLIC_NOTES_DIR);
-    cleanDir(DIST_NOTES_DIR);
-
-  } catch (e) {
-    console.error("❌ Cleanup failed:", e);
+// Ensure all directories exist
+[ARCHIVES_DIR, COMMENTS_DIR, PUBLIC_NOTES_DIR, DIST_NOTES_DIR, UPLOADS_DIR].forEach(dir => {
+  if (!fs.existsSync(dir)) {
+    console.log(`📁 Creating directory: ${dir}`);
+    fs.mkdirSync(dir, { recursive: true });
   }
-}
+});
 
-// Run cleanup on start and every hour
-setTimeout(cleanupUnusedNotes, 5000); // Wait 5s for Yjs sync
-setInterval(cleanupUnusedNotes, 1000 * 60 * 60);
+// Multer setup using disk storage
+const upload = multer({ dest: UPLOADS_DIR });
 
-// ... existing processNoteImage function
+const COLOR_MAP = {
+  white: { r: 255, g: 255, b: 255 },
+  gold: { r: 255, g: 215, b: 0 },
+  purple: { r: 160, g: 32, b: 240 },
+};
+
+async function processNoteImage(inputPath, outputPath, colorName = 'white') {
   console.log(`🎨 Processing image: ${inputPath} -> ${colorName}`);
   const targetColor = COLOR_MAP[colorName] || COLOR_MAP.white;
   
@@ -99,7 +49,7 @@ setInterval(cleanupUnusedNotes, 1000 * 60 * 60);
   // Enhance image for better extraction
   image.greyscale(); // Convert to black and white
   image.normalize(); // Stretch levels to use full range
-  image.contrast(0.6); // Push grays toward black or white (simple number for v1)
+  image.contrast(0.6); // Push grays toward black or white
   
   const width = image.bitmap.width;
   const height = image.bitmap.height;
@@ -107,13 +57,10 @@ setInterval(cleanupUnusedNotes, 1000 * 60 * 60);
   let minX = width, maxX = 0, minY = height, maxY = 0;
   let foundAny = false;
 
-  // Jimp v1 scan
   image.scan(0, 0, width, height, function(x, y, idx) {
     const r = this.bitmap.data[idx + 0];
     const a = this.bitmap.data[idx + 3];
 
-    // After greyscale and contrast, dark pixels will be very dark
-    // Threshold 110 is a bit more generous than 80
     if (r < 110 && a > 0) {
       this.bitmap.data[idx + 0] = targetColor.r;
       this.bitmap.data[idx + 1] = targetColor.g;
@@ -130,10 +77,7 @@ setInterval(cleanupUnusedNotes, 1000 * 60 * 60);
     }
   });
 
-  if (!foundAny) {
-    console.log("⚠️ No note content detected.");
-    return false;
-  }
+  if (!foundAny) return false;
 
   const padding = 10;
   const left = Math.max(0, minX - padding);
@@ -141,18 +85,12 @@ setInterval(cleanupUnusedNotes, 1000 * 60 * 60);
   const right = Math.min(width, maxX + padding);
   const bottom = Math.min(height, maxY + padding);
   
-  // Jimp v1 crop uses an object
-  image.crop({
-    x: left,
-    y: top,
-    w: right - left,
-    h: bottom - top
-  });
-
+  image.crop({ x: left, y: top, w: right - left, h: bottom - top });
   await image.write(outputPath);
   return true;
 }
 
+// Yjs Setup
 const sharedDoc = new Y.Doc();
 const provider = new WebsocketProvider(
   'ws://localhost:1234',
@@ -194,14 +132,38 @@ app.post('/api/upload-note', upload.single('image'), async (req, res) => {
       res.status(400).json({ error: 'No note content detected in image' });
     }
   } catch (e) {
-    // Stringify the error properly to avoid [object Object] or inspection crashes
-    const errorDetail = typeof e === 'object' ? JSON.stringify(e, null, 2) : String(e);
-    console.error('💥 Upload error details:', errorDetail);
-    res.status(500).json({ error: e.message || 'Internal Server Error', details: e });
+    console.error('💥 Upload error:', e.message);
+    res.status(500).json({ error: e.message });
   } finally {
     if (tempPath && fs.existsSync(tempPath)) {
       fs.unlinkSync(tempPath);
     }
+  }
+});
+
+app.delete('/api/delete-note', async (req, res) => {
+  const { url } = req.body;
+  if (!url) return res.status(400).json({ error: 'No URL provided' });
+
+  // Safety check: Only delete notes from our notes directory
+  const fileName = path.basename(url);
+  if (!fileName.startsWith('note-') || !fileName.endsWith('.png')) {
+    return res.status(403).json({ error: 'Invalid file deletion request' });
+  }
+
+  console.log(`🗑️ Deleting note: ${fileName}`);
+  
+  try {
+    const publicPath = path.join(PUBLIC_NOTES_DIR, fileName);
+    const distPath = path.join(DIST_NOTES_DIR, fileName);
+
+    if (fs.existsSync(publicPath)) fs.unlinkSync(publicPath);
+    if (fs.existsSync(distPath)) fs.unlinkSync(distPath);
+
+    res.json({ success: true });
+  } catch (e) {
+    console.error('💥 Delete error:', e.message);
+    res.status(500).json({ error: e.message });
   }
 });
 
@@ -272,6 +234,7 @@ app.use((req, res) => {
   res.sendFile(path.join(__dirname, "dist", "index.html"));
 });
 
+// Safe Error Handler
 app.use((err, req, res, next) => {
   const errMsg = err ? (err.message || String(err)) : 'Unknown Error';
   console.error('🚨 Server Error:', errMsg);
