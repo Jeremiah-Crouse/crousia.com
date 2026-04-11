@@ -17,30 +17,80 @@ const app = express();
 const PORT = 5000;
 const HOST = "0.0.0.0";
 
+// ... existing imports
+
 const ARCHIVES_DIR = path.join(__dirname, 'archives');
 const COMMENTS_DIR = path.join(__dirname, 'comments');
 const PUBLIC_NOTES_DIR = path.join(__dirname, 'public', 'notes');
 const DIST_NOTES_DIR = path.join(__dirname, 'dist', 'notes');
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
 
-// Ensure all directories exist
-[ARCHIVES_DIR, COMMENTS_DIR, PUBLIC_NOTES_DIR, DIST_NOTES_DIR, UPLOADS_DIR].forEach(dir => {
-  if (!fs.existsSync(dir)) {
-    console.log(`📁 Creating directory: ${dir}`);
-    fs.mkdirSync(dir, { recursive: true });
+// ... existing directory creation and multer setup
+
+async function cleanupUnusedNotes() {
+  console.log("🧹 Starting orphan note cleanup...");
+  try {
+    const referencedNotes = new Set();
+
+    // 1. Scan Archives
+    if (fs.existsSync(ARCHIVES_DIR)) {
+      const files = fs.readdirSync(ARCHIVES_DIR).filter(f => f.endsWith('.json'));
+      for (const file of files) {
+        const content = fs.readFileSync(path.join(ARCHIVES_DIR, file), 'utf-8');
+        // Simple regex to find all note filenames in the JSON blob
+        const matches = content.matchAll(/\/notes\/(note-[\w-]+\.png)/g);
+        for (const match of matches) {
+          referencedNotes.add(match[1]);
+        }
+      }
+    }
+
+    // 2. Scan Shared Doc (Today's Entry)
+    // We stringify the entire Yjs doc structure to find references
+    const docData = JSON.stringify(sharedDoc.toJSON());
+    const liveMatches = docData.matchAll(/\/notes\/(note-[\w-]+\.png)/g);
+    for (const match of liveMatches) {
+      referencedNotes.add(match[1]);
+    }
+
+    console.log(`📌 Found ${referencedNotes.size} referenced notes.`);
+
+    // 3. Clean Directories
+    const cleanDir = (dirPath) => {
+      if (!fs.existsSync(dirPath)) return;
+      const files = fs.readdirSync(dirPath);
+      let deletedCount = 0;
+
+      for (const file of files) {
+        if (!referencedNotes.has(file)) {
+          const filePath = path.join(dirPath, file);
+          const stats = fs.statSync(filePath);
+          const now = Date.now();
+          const ageMinutes = (now - stats.mtimeMs) / (1000 * 60);
+
+          // Only delete if older than 5 minutes (grace period for new uploads)
+          if (ageMinutes > 5) {
+            fs.unlinkSync(filePath);
+            deletedCount++;
+          }
+        }
+      }
+      if (deletedCount > 0) console.log(`🗑️ Deleted ${deletedCount} orphans from ${dirPath}`);
+    };
+
+    cleanDir(PUBLIC_NOTES_DIR);
+    cleanDir(DIST_NOTES_DIR);
+
+  } catch (e) {
+    console.error("❌ Cleanup failed:", e);
   }
-});
+}
 
-// Multer setup using disk storage
-const upload = multer({ dest: UPLOADS_DIR });
+// Run cleanup on start and every hour
+setTimeout(cleanupUnusedNotes, 5000); // Wait 5s for Yjs sync
+setInterval(cleanupUnusedNotes, 1000 * 60 * 60);
 
-const COLOR_MAP = {
-  white: { r: 255, g: 255, b: 255 },
-  gold: { r: 255, g: 215, b: 0 },
-  purple: { r: 160, g: 32, b: 240 },
-};
-
-async function processNoteImage(inputPath, outputPath, colorName = 'white') {
+// ... existing processNoteImage function
   console.log(`🎨 Processing image: ${inputPath} -> ${colorName}`);
   const targetColor = COLOR_MAP[colorName] || COLOR_MAP.white;
   
