@@ -52,7 +52,7 @@ export const getSharedProvider = ({ readonly = false, username = "guest" } = {})
 
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
     const hostname = window.location.hostname;
-    const host = (hostname === 'localhost' || hostname === '127.0.0.1') ? 'localhost:1234' : 'admin.crousia.com';
+    const host = (hostname === 'localhost' || hostname === '127.0.0.1') ? 'localhost:1234' : 'qwert.crousia.com';
     provider = new WebsocketProvider(`${protocol}://${host}/ysl`, "crousia-shared-room", doc, {
       connect: !readonly,
     });
@@ -103,5 +103,5 @@ export const clearSharedData = async () => {
 // ----- Check if user is admin -----
 export const isAdmin = () => {
   const host = window.location.hostname;
-  return host.startsWith("admin.") || host === "localhost" || host === "127.0.0.1";
+  return host.startsWith("qwert.") || host === "localhost" || host === "127.0.0.1";
 };

@@ -18,7 +18,8 @@ echo "[$(date)] 🚀 Crousia Keep-Alive Script Starting..." | tee -a "$LOGS/keep
 SYNC_SERVER="/root/crousia-v2/server-sync.js"
 WEB_SERVER="/root/crousia-v2/serve.js"
 CLOUDFLARED="/usr/local/bin/cloudflared"  # adjust if different
-TUNNEL_NAME="8f48ffd5-c69c-4fe2-911b-d492d965d028"
+CLOUDFLARED_CONFIG="/root/crousia-v2/cloudflared.yml"
+TUNNEL_NAME="83bfd6ab-9048-45eb-b1c1-8a2b8e5a8545"
 
 fix_leveldb_current() {
     if [ ! -d "$CROUISA_DB" ]; then return; fi
@@ -66,7 +67,7 @@ while true; do
     TUNNEL_PID=$(pgrep -f "$CLOUDFLARED tunnel run $TUNNEL_NAME")
     if [ -z "$TUNNEL_PID" ] || ! kill -0 "$TUNNEL_PID" 2>/dev/null; then
         echo "$TIMESTAMP Starting Cloudflare Tunnel..." | tee -a "$LOGS/keepalive.log"
-        nohup "$CLOUDFLARED" tunnel run "$TUNNEL_NAME" >> "$LOGS/cloudflared.log" 2>&1 &
+        nohup "$CLOUDFLARED" --config "$CLOUDFLARED_CONFIG" tunnel run "$TUNNEL_NAME" >> "$LOGS/cloudflared.log" 2>&1 &
         # Wait 15 seconds to let the tunnel establish
         sleep 15
     fi

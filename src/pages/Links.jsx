@@ -7,10 +7,11 @@ const linkItems = [
   { name: 'PRINCESS', url: 'https://princess.crousia.com' },
   { name: 'PRINCE', url: 'https://prince.crousia.com' },
   { name: 'LOTTERY', url: 'https://lottery.crousia.com' },
-  { name: 'ECHAD', url: 'https://echad.mooo.com' },
+  { name: 'ECHAD', url: 'https://echad.crousia.com' },
   { name: 'LAB', url: 'https://lab.crousia.com' },
   { name: 'MUSIC', url: 'https://music.crousia.com' },
   { name: 'VERDIS', url: 'https://verdis.crousia.com' },
+  { name: 'USA', url: 'https://usa.crousia.com', unicode: 'ŪSA' },
 ];
 
 export default function Links() {
@@ -26,7 +27,7 @@ export default function Links() {
             rel="noreferrer"
             className="link-card"
           >
-            {link.name}
+            {link.unicode || link.name}
           </a>
         ))}
       </div>

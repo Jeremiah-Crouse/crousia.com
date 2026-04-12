@@ -1,0 +1,26 @@
+tunnel: 83bfd6ab-9048-45eb-b1c1-8a2b8e5a8545
+credentials-file: /root/.cloudflared/83bfd6ab-9048-45eb-b1c1-8a2b8e5a8545.json
+
+ingress:
+  - hostname: qwert.crousia.com
+    path: /ysl
+    service: http://localhost:1234
+
+  - hostname: crousia.com
+    path: /ysl
+    service: http://localhost:1234
+
+  - hostname: www.crousia.com
+    path: /ysl
+    service: http://localhost:1234
+
+  - hostname: qwert.crousia.com
+    service: http://localhost:5000
+
+  - hostname: crousia.com
+    service: http://localhost:5000
+
+  - hostname: www.crousia.com
+    service: http://localhost:5000
+
+  - service: http_status:404
