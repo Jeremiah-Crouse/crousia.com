@@ -12,6 +12,7 @@ const linkItems = [
   { name: 'MUSIC', url: 'https://music.crousia.com' },
   { name: 'VERDIS', url: 'https://verdis.crousia.com' },
   { name: 'USA', url: 'https://usa.crousia.com', unicode: 'ŪSA' },
+  { name: 'BUS', url: 'https://bus.crousia.com' },
 ];
 
 export default function Links() {
