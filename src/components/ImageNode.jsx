@@ -84,10 +84,18 @@ export class ImageNode extends DecoratorNode {
             right: 0,
             bottom: 0,
             backgroundImage: `url(${texture})`,
-            backgroundSize: 'cover',
-            backgroundPosition: 'center',
+            backgroundSize: `${SIZE * FRAMES}px ${SIZE}px`,
+            backgroundPosition: `-${randomOffset * SIZE}px 0`,
             animation: `frame-anim ${1.44}s steps(${FRAMES}) infinite`,
             zIndex: 1,
+            maskImage: `url(${this.__src})`,
+            maskSize: 'contain',
+            maskPosition: 'center',
+            maskRepeat: 'no-repeat',
+            WebkitMaskImage: `url(${this.__src})`,
+            WebkitMaskSize: 'contain',
+            WebkitMaskPosition: 'center',
+            WebkitMaskRepeat: 'no-repeat',
           }}
         />
         <img
@@ -99,7 +107,6 @@ export class ImageNode extends DecoratorNode {
             display: 'block',
             position: 'relative',
             zIndex: 2,
-            mixBlendMode: 'luminosity',
           }}
         />
       </div>
