@@ -26,7 +26,7 @@ function resolveFontSize({ size, style, logo, nav }) {
   if (style?.height) {
     const numericHeight = parseFloat(style.height);
     const unit = typeof style.height === 'string' ? style.height.replace(/[0-9.]/g, '') : 'px';
-    const scale = logo ? 0.55 : 0.72; 
+    const scale = logo ? 0.35 : 0.72; 
     return `${numericHeight * scale}${unit || 'px'}`;
   }
 
