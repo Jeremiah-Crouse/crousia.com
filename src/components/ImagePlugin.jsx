@@ -61,12 +61,14 @@ export default function ImagePlugin({ isAdmin, username }) {
     };
   }, [editor]);
 
-  const onAddImage = () => {
+  const onAddImage = (username) => {
     const src = prompt('Enter the URL of the image:');
     if (src) {
+      const variant = username === "King Jeremiah" ? "gold" : username === "Queen Lauren" ? "purple" : "gold";
       editor.dispatchCommand(INSERT_IMAGE_COMMAND, {
         src,
         altText: 'Crousia Image',
+        variant,
       });
     }
   };
@@ -90,9 +92,11 @@ export default function ImagePlugin({ isAdmin, username }) {
       });
       const data = await res.json();
       if (data.success) {
+        const variant = username === "King Jeremiah" ? "gold" : username === "Queen Lauren" ? "purple" : "gold";
         editor.dispatchCommand(INSERT_IMAGE_COMMAND, {
           src: data.url,
           altText: data.altText || 'Handwritten Note',
+          variant,
         });
       } else {
         alert(data.error || 'Upload failed');
@@ -111,7 +115,7 @@ export default function ImagePlugin({ isAdmin, username }) {
 
   return (
     <div className="toolbar">
-      <button onClick={onAddImage} className="toolbar-item">
+      <button onClick={() => onAddImage(username)} className="toolbar-item">
         Add URL
       </button>
       <button onClick={onUploadClick} className="toolbar-item">

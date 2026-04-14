@@ -17,20 +17,22 @@ const linkItems = [
 
 export default function Links() {
   return (
-    <div className="links-container">
-      <CrousianText text="SUBDOMAINS" size={0.7} />
-      <div className="links-grid">
-        {linkItems.map((link) => (
-          <a 
-            key={link.name} 
-            href={link.url} 
-            target="_blank" 
-            rel="noreferrer"
-            className="link-card"
-          >
-            {link.unicode || link.name}
-          </a>
-        ))}
+    <div className="container">
+      <div className="links-inner">
+        <CrousianText text="SUBDOMAINS" size={0.7} />
+        <div className="links-grid">
+          {linkItems.map((link) => (
+            <a 
+              key={link.name} 
+              href={link.url} 
+              target="_blank" 
+              rel="noreferrer"
+              className="link-card"
+            >
+              {link.unicode || link.name}
+            </a>
+          ))}
+        </div>
       </div>
     </div>
   );

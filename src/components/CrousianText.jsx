@@ -1,7 +1,7 @@
-import React, { Suspense, lazy } from 'react';
+import React, { lazy } from 'react';
 
-const ImageCrousianText = lazy(() => import('./ImageCrousianText'));
+const TexturedCrousianText = lazy(() => import('./TexturedCrousianText'));
 
 export default function CrousianText(props) {
-  return <ImageCrousianText {...props} />;
+  return <TexturedCrousianText {...props} />;
 }
