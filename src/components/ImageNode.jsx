@@ -79,11 +79,30 @@ function ImageWithTexture({ src, alt, texture, offset }) {
   const imgRef = React.useRef(null);
   const [loaded, setLoaded] = React.useState(false);
   
+  const isNote = src && src.includes('/notes/');
+  
   React.useEffect(() => {
     if (imgRef.current && imgRef.current.complete) {
       setLoaded(true);
     }
   }, []);
+  
+  if (!isNote) {
+    return (
+      <img
+        src={src}
+        alt={alt}
+        style={{
+          width: '100%',
+          height: 'auto',
+          display: 'block',
+          marginTop: '10px',
+          marginBottom: '10px',
+          borderRadius: '4px',
+        }}
+      />
+    );
+  }
   
   return (
     <div
