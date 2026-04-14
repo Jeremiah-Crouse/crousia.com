@@ -73,29 +73,34 @@ export class ImageNode extends DecoratorNode {
           marginTop: '10px',
           marginBottom: '10px',
           borderRadius: '4px',
-          overflow: 'hidden',
         }}
       >
+        <img
+          src={this.__src}
+          alt={this.__altText}
+          style={{
+            width: '100%',
+            height: 'auto',
+            display: 'block',
+            clipPath: 'inset(0 0 0 0)',
+          }}
+        />
         <div
           style={{
             position: 'absolute',
             top: 0,
             left: 0,
-            right: 0,
-            bottom: 0,
+            width: '100%',
+            height: '100%',
             backgroundImage: `url(${texture})`,
-            backgroundSize: `${SIZE * FRAMES}px ${SIZE}px`,
-            backgroundPosition: `-${randomOffset * SIZE}px 0`,
+            backgroundSize: '100% 100%',
+            backgroundPosition: 'center',
+            backgroundRepeat: 'no-repeat',
             animation: `frame-anim ${1.44}s steps(${FRAMES}) infinite`,
             zIndex: 1,
-            maskImage: `url(${this.__src})`,
-            maskSize: 'contain',
-            maskPosition: 'center',
-            maskRepeat: 'no-repeat',
-            WebkitMaskImage: `url(${this.__src})`,
-            WebkitMaskSize: 'contain',
-            WebkitMaskPosition: 'center',
-            WebkitMaskRepeat: 'no-repeat',
+            clipPath: `url(${this.__src})`,
+            WebkitClipPath: `url(${this.__src})`,
+            pointerEvents: 'none',
           }}
         />
       </div>
