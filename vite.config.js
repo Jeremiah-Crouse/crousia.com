@@ -9,7 +9,12 @@ export default defineConfig({
   },
 
   optimizeDeps: {
-    include: ['yjs', 'y-websocket', '@lexical/yjs', 'prismjs']
+    include: ['yjs', 'y-websocket', '@lexical/yjs', 'prismjs'],
+    esbuildOptions: {
+      define: {
+        global: 'globalThis'
+      }
+    }
   },
 
   plugins: [react()],
@@ -32,7 +37,9 @@ export default defineConfig({
               return 'three-vendor';
             }
             if (id.includes('lexical') || id.includes('@lexical')) {
-              return 'lexical-vendor';
+              if (!id.includes('prismjs')) {
+                return 'lexical-vendor';
+              }
             }
             if (id.includes('yjs') || id.includes('y-websocket')) {
               return 'yjs-vendor';
