@@ -1,10 +1,10 @@
 // serve.js
-import "dotenv/config";
 import express from "express";
 import http from "http";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
+import dotenv from "dotenv";
 import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
 import WebSocket from "ws";
@@ -13,6 +13,7 @@ import { Jimp } from "jimp";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.join(__dirname, ".env") });
 
 const app = express();
 const PORT = Number(process.env.PORT || 5000);
@@ -155,7 +156,18 @@ async function getImageAltText(filePath) {
 
     const result = await response.json();
     const message = result?.choices?.[0]?.message ?? {};
-    const content = typeof message.content === 'string' ? message.content.trim() : '';
+    const content = Array.isArray(message.content)
+      ? message.content
+          .map((part) => {
+            if (typeof part === 'string') return part;
+            if (part && typeof part.text === 'string') return part.text;
+            return '';
+          })
+          .join(' ')
+          .trim()
+      : typeof message.content === 'string'
+        ? message.content.trim()
+        : '';
     const reasoning = typeof message.reasoning === 'string' ? message.reasoning.trim() : '';
     const altText = content || reasoning;
 
