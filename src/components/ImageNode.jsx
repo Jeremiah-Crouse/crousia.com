@@ -76,7 +76,14 @@ export class ImageNode extends DecoratorNode {
 }
 
 function ImageWithTexture({ src, alt, texture, offset }) {
+  const imgRef = React.useRef(null);
   const [loaded, setLoaded] = React.useState(false);
+  
+  React.useEffect(() => {
+    if (imgRef.current && imgRef.current.complete) {
+      setLoaded(true);
+    }
+  }, []);
   
   return (
     <div
@@ -91,6 +98,7 @@ function ImageWithTexture({ src, alt, texture, offset }) {
       }}
     >
       <img
+        ref={imgRef}
         src={src}
         alt={alt}
         style={{
@@ -101,7 +109,7 @@ function ImageWithTexture({ src, alt, texture, offset }) {
         }}
         onLoad={() => setLoaded(true)}
       />
-      {loaded && (
+      {(loaded || (imgRef.current && imgRef.current.complete)) && (
         <div
           style={{
             position: 'absolute',

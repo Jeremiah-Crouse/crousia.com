@@ -3,8 +3,7 @@ import React, { useState, useEffect } from 'react';
 export default function SplashScreen({ onComplete }) {
   const [progress, setProgress] = useState(0);
   const [imageLoaded, setImageLoaded] = useState(false);
-  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
-  const imageSrc = isMobile ? '/CROUSIA-mobile.jpeg' : '/CROUSIA.jpeg';
+  const imageSrc = '/CROUSIA-mobile.jpeg';
 
   useEffect(() => {
     const img = new Image();
