@@ -229,10 +229,21 @@ app.delete('/api/delete-note', async (req, res) => {
   const { url } = req.body;
   if (!url) return res.status(400).json({ error: 'No URL provided' });
 
-  // Safety check: Only delete notes from our notes directory
   const fileName = path.basename(url);
   if (!fileName.startsWith('note-') || !fileName.endsWith('.png')) {
     return res.status(403).json({ error: 'Invalid file deletion request' });
+  }
+
+  // Check if this note is referenced in any archive before deleting
+  if (fs.existsSync(ARCHIVES_DIR)) {
+    const archives = fs.readdirSync(ARCHIVES_DIR).filter(f => f.endsWith('.json'));
+    for (const archive of archives) {
+      const content = fs.readFileSync(path.join(ARCHIVES_DIR, archive), 'utf-8');
+      if (content.includes(fileName)) {
+        console.log(`⛔ NOT deleting ${fileName} - still referenced in ${archive}`);
+        return res.json({ success: false, reason: 'referenced' });
+      }
+    }
   }
 
   console.log(`🗑️ Deleting note: ${fileName}`);

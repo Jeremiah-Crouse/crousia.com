@@ -33,11 +33,16 @@ export default function ImagePlugin({ isAdmin, username }) {
         } else if (mutation === 'destroyed') {
           const url = nodeUrlMap.get(nodeKey);
           if (url && url.startsWith('/notes/note-')) {
-            console.log('🧹 Image node destroyed, deleting file:', url);
             fetch('/api/delete-note', {
               method: 'DELETE',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ url }),
+            }).then(res => res.json()).then(data => {
+              if (data.success) {
+                console.log('🧹 Image node destroyed, deleted file:', url);
+              } else if (data.reason === 'referenced') {
+                console.log('⛔ Kept note - still referenced in archive:', url);
+              }
             }).catch(err => console.error('Failed to delete note file:', err));
           }
           nodeUrlMap.delete(nodeKey);
