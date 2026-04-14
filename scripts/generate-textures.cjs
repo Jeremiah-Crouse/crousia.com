@@ -94,68 +94,40 @@ function smoothstep(edge0, edge1, x) {
 }
 
 function renderGoldPixel(uvX, uvY, time, colors) {
-  // Band-based pattern similar to purple but adapted for gold
-  const bandA = Math.sin(uvY * 14 + time) * 0.5 + 0.5;
-  const bandB = Math.sin(uvX * 10 - time * 0.8) * 0.5 + 0.5;
-  
-  const n = valueNoise(uvX * 6 + Math.cos(time) * 0.3, uvY * 6 + Math.sin(time) * 0.3);
-  const flow = mix(bandA, bandB, 0.4);
-  const blend = mix(flow, n, 0.35);
+  // Simple diagonal wave - clearly periodic and tileable
+  const wave = Math.sin((uvX + uvY) * 2 * Math.PI + time);
+  const blend = wave * 0.5 + 0.5;
 
   let color = mixColor(colors[0], colors[1], blend);
-  color = mixColor(color, colors[2], Math.pow(blend, 3));
-
-  const core = Math.pow(1 - Math.abs(uvX - 0.5), 8);
-  color = addColor(color, [255, 240, 180], core * 0.5);
-
-  const fresnel = Math.pow(1 - Math.abs(uvY - 0.5), 2.5);
-  color = addColor(color, [255, 215, 100], fresnel * 0.3);
+  color = mixColor(color, colors[2], Math.pow(blend, 2));
 
   return gamma(color, 0.85);
 }
 
 function renderEmeraldPixel(uvX, uvY, time, colors) {
-  const flippedX = 1 - uvX;
-  const n = valueNoise(flippedX * 6 + Math.cos(time) * 0.2, uvY * 6 + Math.sin(time) * 0.2);
-  const gradient = smoothstep(0, 1, uvY);
-  const mixVal = mix(gradient, n, 0.25);
+  const wave = Math.sin((uvX + uvY) * 2 * Math.PI + time);
+  const blend = wave * 0.5 + 0.5;
 
-  let color = mixColor(colors[0], colors[1], mixVal);
-  color = mixColor(color, colors[2], Math.pow(mixVal, 4));
-
-  const spec = Math.pow(1 - Math.abs(flippedX - 0.5), 12);
-  color = addColor(color, [153, 255, 179], spec * 0.6);
-
-  const fresnel = Math.pow(1 - Math.abs(uvY - 0.5), 4);
-  color = addColor(color, [77, 230, 128], fresnel * 0.3);
+  let color = mixColor(colors[0], colors[1], blend);
+  color = mixColor(color, colors[2], Math.pow(blend, 2));
 
   return gamma(color, 0.8);
 }
 
 function renderPurplePixel(uvX, uvY, time, colors) {
-  // Simplified band math to ensure 2*PI periodicity
-  const bandA = Math.sin(uvY * 16 + time) * 0.5 + 0.5;
-  const bandB = Math.sin(uvX * 12 - time) * 0.5 + 0.5;
-  
-  const n = valueNoise(uvX * 7 + Math.cos(time) * 0.3, uvY * 7 + Math.sin(time) * 0.3);
-  const glow = mix(bandA, bandB, 0.35);
-  const blend = mix(glow, n, 0.3);
+  const wave = Math.sin((uvX + uvY) * 2 * Math.PI + time);
+  const blend = wave * 0.5 + 0.5;
 
   let color = mixColor(colors[0], colors[1], blend);
-  color = mixColor(color, colors[2], Math.pow(blend, 3.5));
-
-  const core = Math.pow(1 - Math.abs(uvX - 0.5), 10);
-  color = addColor(color, [255, 230, 255], core * 0.4);
-
-  const haze = Math.pow(1 - Math.abs(uvY - 0.5), 2.5);
-  color = addColor(color, [214, 166, 255], haze * 0.22);
+  color = mixColor(color, colors[2], Math.pow(blend, 2));
 
   return gamma(color, 0.82);
 }
 
 function renderFrame(texture, frameIndex) {
   const rgba = new Uint8ClampedArray(SIZE * SIZE * 4);
-  const time = (frameIndex / FRAMES) * Math.PI * 2;
+  // Frame 0 = time 0, Frame FRAMES-1 = time 2π (full sine cycle)
+  const time = frameIndex * (Math.PI * 2 / (FRAMES - 1));
 
   for (let y = 0; y < SIZE; y += 1) {
     for (let x = 0; x < SIZE; x += 1) {
