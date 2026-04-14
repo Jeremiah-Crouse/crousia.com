@@ -11,8 +11,15 @@
     <link rel="manifest" href="/site.webmanifest" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>CROUSIA</title>
+    <link rel="preload" href="/textures/gold.gif" as="image">
+    <link rel="preload" href="/textures/purple.gif" as="image">
+    <link rel="preload" href="/textures/green.gif" as="image">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
     <style>
+      @keyframes frame-anim {
+        from { background-position: 0px 0; }
+        to { background-position: -6144px 0; }
+      }
       strong.editor-italic { font-style: italic !important; }
       em.editor-bold { font-style: normal !important; font-weight: bold !important; }
     </style>

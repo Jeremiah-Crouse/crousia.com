@@ -9,6 +9,11 @@
   to { background-position: -6144px 0; }
 }
 
+@keyframes frame-anim-reverse {
+  from { background-position: -6144px 0; }
+  to { background-position: 0px 0; }
+}
+
 :root {
     --bg-primary: #1a1a2e;
     --bg-secondary: #0f0f1a;

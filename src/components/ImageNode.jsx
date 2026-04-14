@@ -62,7 +62,8 @@ export class ImageNode extends DecoratorNode {
 
   decorate() {
     const texture = TEXTURE_MAP[this.__variant] || TEXTURE_MAP.gold;
-    const randomOffset = Math.floor(Math.random() * FRAMES);
+    const offset = (this.__src.charCodeAt(0) + (this.__src.length % FRAMES)) % FRAMES;
+    const [imageLoaded, setImageLoaded] = React.useState(false);
     
     return (
       <div
@@ -85,30 +86,33 @@ export class ImageNode extends DecoratorNode {
             display: 'block',
             opacity: 0,
           }}
+          onLoad={() => setImageLoaded(true)}
         />
-        <div
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundImage: `url(${texture})`,
-            backgroundSize: `${SIZE * FRAMES}px ${SIZE}px`,
-            backgroundPosition: `-${randomOffset * SIZE}px 0`,
-            animation: `frame-anim ${1.44}s steps(${FRAMES}) infinite`,
-            WebkitMaskImage: `url(${this.__src})`,
-            WebkitMaskSize: 'contain',
-            WebkitMaskPosition: 'center',
-            WebkitMaskRepeat: 'no-repeat',
-            maskImage: `url(${this.__src})`,
-            maskSize: 'contain',
-            maskPosition: 'center',
-            maskRepeat: 'no-repeat',
-            zIndex: 1,
-            pointerEvents: 'none',
-          }}
-        />
+        {imageLoaded && (
+          <div
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundImage: `url(${texture})`,
+              backgroundSize: `${SIZE * FRAMES}px ${SIZE}px`,
+              backgroundPosition: `-${offset * SIZE}px 0`,
+              animation: `frame-anim ${1.44}s steps(${FRAMES}) infinite`,
+              WebkitMaskImage: `url(${this.__src})`,
+              WebkitMaskSize: 'contain',
+              WebkitMaskPosition: 'center',
+              WebkitMaskRepeat: 'no-repeat',
+              maskImage: `url(${this.__src})`,
+              maskSize: 'contain',
+              maskPosition: 'center',
+              maskRepeat: 'no-repeat',
+              zIndex: 1,
+              pointerEvents: 'none',
+            }}
+          />
+        )}
       </div>
     );
   }
