@@ -36,7 +36,7 @@ const UPLOADS_DIR = path.join(__dirname, 'uploads');
 // Multer setup using disk storage
 const upload = multer({ dest: UPLOADS_DIR });
 const HUGGINGFACE_API_URL = "https://router.huggingface.co/v1/chat/completions";
-const HUGGINGFACE_VISION_MODEL = "Qwen/Qwen2.5-VL-7B-Instruct";
+const HUGGINGFACE_VISION_MODEL = process.env.HUGGINGFACE_VISION_MODEL || "Qwen/Qwen2.5-VL-7B-Instruct";
 
 const COLOR_MAP = {
   white: { r: 255, g: 255, b: 255 },
