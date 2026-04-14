@@ -1,4 +1,5 @@
 // serve.js
+import "dotenv/config";
 import express from "express";
 import http from "http";
 import path from "path";
@@ -14,8 +15,8 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = 5000;
-const HOST = "0.0.0.0";
+const PORT = Number(process.env.PORT || 5000);
+const HOST = process.env.HOST || "0.0.0.0";
 
 const ARCHIVES_DIR = path.join(__dirname, 'archives');
 const COMMENTS_DIR = path.join(__dirname, 'comments');
@@ -33,6 +34,8 @@ const UPLOADS_DIR = path.join(__dirname, 'uploads');
 
 // Multer setup using disk storage
 const upload = multer({ dest: UPLOADS_DIR });
+const HUGGINGFACE_API_URL = "https://router.huggingface.co/v1/chat/completions";
+const HUGGINGFACE_VISION_MODEL = "Qwen/Qwen2.5-VL-7B-Instruct";
 
 const COLOR_MAP = {
   white: { r: 255, g: 255, b: 255 },
@@ -90,6 +93,79 @@ async function processNoteImage(inputPath, outputPath, colorName = 'white') {
   return true;
 }
 
+function getMimeTypeForFile(filePath) {
+  const ext = path.extname(filePath).toLowerCase();
+
+  switch (ext) {
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg';
+    case '.webp':
+      return 'image/webp';
+    case '.gif':
+      return 'image/gif';
+    default:
+      return 'image/png';
+  }
+}
+
+async function getImageAltText(filePath) {
+  const apiKey = process.env.HUGGINGFACE_API_KEY;
+  if (!apiKey) {
+    return 'Uploaded note image';
+  }
+
+  try {
+    const buffer = await fs.promises.readFile(filePath);
+    const mimeType = getMimeTypeForFile(filePath);
+    const dataUrl = `data:${mimeType};base64,${buffer.toString('base64')}`;
+
+    const response = await fetch(HUGGINGFACE_API_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: HUGGINGFACE_VISION_MODEL,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'image_url',
+                image_url: { url: dataUrl },
+              },
+              {
+                type: 'text',
+                text: 'Describe this image for an HTML alt attribute in one short sentence. Be specific and literal.',
+              },
+            ],
+          },
+        ],
+        max_tokens: 80,
+      }),
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      console.error(`💥 Hugging Face alt-text error: ${response.status} ${body.slice(0, 200)}`);
+      return 'Uploaded note image';
+    }
+
+    const result = await response.json();
+    const message = result?.choices?.[0]?.message ?? {};
+    const content = typeof message.content === 'string' ? message.content.trim() : '';
+    const reasoning = typeof message.reasoning === 'string' ? message.reasoning.trim() : '';
+    const altText = content || reasoning;
+
+    return altText || 'Uploaded note image';
+  } catch (error) {
+    console.error('💥 Failed to generate alt text:', error);
+    return 'Uploaded note image';
+  }
+}
+
 // Yjs Setup
 const sharedDoc = new Y.Doc();
 const provider = new WebsocketProvider(
@@ -126,8 +202,9 @@ app.post('/api/upload-note', upload.single('image'), async (req, res) => {
     if (success) {
       if (!fs.existsSync(DIST_NOTES_DIR)) fs.mkdirSync(DIST_NOTES_DIR, { recursive: true });
       fs.copyFileSync(publicPath, distPath);
+      const altText = await getImageAltText(publicPath);
       console.log(`✅ Success: ${fileName}`);
-      res.json({ success: true, url: `/notes/${fileName}` });
+      res.json({ success: true, url: `/notes/${fileName}`, altText });
     } else {
       res.status(400).json({ error: 'No note content detected in image' });
     }

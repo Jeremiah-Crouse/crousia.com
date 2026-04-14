@@ -92,7 +92,7 @@ export default function ImagePlugin({ isAdmin, username }) {
       if (data.success) {
         editor.dispatchCommand(INSERT_IMAGE_COMMAND, {
           src: data.url,
-          altText: 'Handwritten Note',
+          altText: data.altText || 'Handwritten Note',
         });
       } else {
         alert(data.error || 'Upload failed');
