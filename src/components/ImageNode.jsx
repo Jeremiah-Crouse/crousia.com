@@ -88,8 +88,6 @@ export class ImageNode extends DecoratorNode {
             backgroundPosition: `-${randomOffset * SIZE}px 0`,
             animation: `frame-anim ${1.44}s steps(${FRAMES}) infinite`,
             zIndex: 1,
-            opacity: 0.7,
-            mixBlendMode: 'overlay',
             maskImage: `url(${this.__src})`,
             maskSize: 'contain',
             maskPosition: 'center',
@@ -98,18 +96,6 @@ export class ImageNode extends DecoratorNode {
             WebkitMaskSize: 'contain',
             WebkitMaskPosition: 'center',
             WebkitMaskRepeat: 'no-repeat',
-          }}
-        />
-        <img
-          src={this.__src}
-          alt={this.__altText}
-          style={{
-            width: '100%',
-            height: 'auto',
-            display: 'block',
-            position: 'relative',
-            zIndex: 2,
-            opacity: 0.5,
           }}
         />
       </div>
