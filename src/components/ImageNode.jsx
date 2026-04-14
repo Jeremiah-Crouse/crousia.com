@@ -76,17 +76,6 @@ export class ImageNode extends DecoratorNode {
           overflow: 'hidden',
         }}
       >
-        <img
-          src={this.__src}
-          alt={this.__altText}
-          style={{
-            width: '100%',
-            height: 'auto',
-            display: 'block',
-            position: 'relative',
-            zIndex: 1,
-          }}
-        />
         <div
           style={{
             position: 'absolute',
@@ -95,12 +84,22 @@ export class ImageNode extends DecoratorNode {
             right: 0,
             bottom: 0,
             backgroundImage: `url(${texture})`,
-            backgroundSize: `${SIZE * FRAMES}px ${SIZE}px`,
-            backgroundPosition: `-${randomOffset * SIZE}px 0`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
             animation: `frame-anim ${1.44}s steps(${FRAMES}) infinite`,
-            mixBlendMode: 'overlay',
-            pointerEvents: 'none',
+            zIndex: 1,
+          }}
+        />
+        <img
+          src={this.__src}
+          alt={this.__altText}
+          style={{
+            width: '100%',
+            height: 'auto',
+            display: 'block',
+            position: 'relative',
             zIndex: 2,
+            mixBlendMode: 'luminosity',
           }}
         />
       </div>
