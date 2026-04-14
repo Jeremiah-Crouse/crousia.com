@@ -35,8 +35,8 @@ const UPLOADS_DIR = path.join(__dirname, 'uploads');
 
 // Multer setup using disk storage
 const upload = multer({ dest: UPLOADS_DIR });
-const HUGGINGFACE_API_URL = "https://router.huggingface.co/v1/chat/completions";
-const HUGGINGFACE_VISION_MODEL = process.env.HUGGINGFACE_VISION_MODEL || "Qwen/Qwen2.5-VL-7B-Instruct";
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models";
+const GEMINI_VISION_MODEL = process.env.GEMINI_VISION_MODEL || "gemini-2.0-flash-lite";
 
 const COLOR_MAP = {
   white: { r: 255, g: 255, b: 255 },
@@ -111,7 +111,7 @@ function getMimeTypeForFile(filePath) {
 }
 
 async function getImageAltText(filePath) {
-  const apiKey = process.env.HUGGINGFACE_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
     return 'Uploaded note image';
   }
@@ -121,55 +121,50 @@ async function getImageAltText(filePath) {
     const mimeType = getMimeTypeForFile(filePath);
     const dataUrl = `data:${mimeType};base64,${buffer.toString('base64')}`;
 
-    const response = await fetch(HUGGINGFACE_API_URL, {
+    const response = await fetch(`${GEMINI_API_URL}/${encodeURIComponent(GEMINI_VISION_MODEL)}:generateContent`, {
       method: 'POST',
       headers: {
-        Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey,
       },
       body: JSON.stringify({
-        model: HUGGINGFACE_VISION_MODEL,
-        messages: [
+        contents: [
           {
-            role: 'user',
-            content: [
+            parts: [
               {
-                type: 'image_url',
-                image_url: { url: dataUrl },
+                inline_data: {
+                  mime_type: mimeType,
+                  data: buffer.toString('base64'),
+                },
               },
               {
-                type: 'text',
-                text: 'Describe this image for an HTML alt attribute in one short sentence. Be specific and literal.',
+                text: 'Write concise HTML alt text for this image in one short sentence. Be specific, literal, and avoid phrases like "image of" or "picture of".',
               },
             ],
           },
         ],
-        max_tokens: 80,
+        generationConfig: {
+          maxOutputTokens: 80,
+          temperature: 0.2,
+        },
       }),
     });
 
     if (!response.ok) {
       const body = await response.text();
-      console.error(`💥 Hugging Face alt-text error: ${response.status} ${body.slice(0, 200)}`);
+      console.error(`💥 Gemini alt-text error: ${response.status} ${body.slice(0, 300)}`);
       return 'Uploaded note image';
     }
 
     const result = await response.json();
-    const message = result?.choices?.[0]?.message ?? {};
-    const content = Array.isArray(message.content)
-      ? message.content
-          .map((part) => {
-            if (typeof part === 'string') return part;
-            if (part && typeof part.text === 'string') return part.text;
-            return '';
-          })
+    const parts = result?.candidates?.[0]?.content?.parts ?? [];
+    const content = Array.isArray(parts)
+      ? parts
+          .map((part) => (part && typeof part.text === 'string' ? part.text : ''))
           .join(' ')
           .trim()
-      : typeof message.content === 'string'
-        ? message.content.trim()
-        : '';
-    const reasoning = typeof message.reasoning === 'string' ? message.reasoning.trim() : '';
-    const altText = content || reasoning;
+      : '';
+    const altText = content;
 
     return altText || 'Uploaded note image';
   } catch (error) {
