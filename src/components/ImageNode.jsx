@@ -139,7 +139,7 @@ function ImageWithTexture({ src, alt, texture, offset }) {
             backgroundImage: `url(${texture})`,
             backgroundSize: `${SIZE * FRAMES}px ${SIZE}px`,
             backgroundPosition: `-${offset * SIZE}px 0`,
-            animation: `frame-anim ${1.44}s steps(${FRAMES}) infinite`,
+            animation: `frame-anim ${2.88}s steps(${FRAMES}) infinite`,
             WebkitMaskImage: `url(${src})`,
             WebkitMaskSize: 'contain',
             WebkitMaskPosition: 'center',
