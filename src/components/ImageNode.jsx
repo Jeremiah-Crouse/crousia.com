@@ -73,6 +73,7 @@ export class ImageNode extends DecoratorNode {
           marginTop: '10px',
           marginBottom: '10px',
           borderRadius: '4px',
+          overflow: 'hidden',
         }}
       >
         <img
@@ -82,7 +83,7 @@ export class ImageNode extends DecoratorNode {
             width: '100%',
             height: 'auto',
             display: 'block',
-            clipPath: 'inset(0 0 0 0)',
+            opacity: 0,
           }}
         />
         <div
@@ -90,16 +91,21 @@ export class ImageNode extends DecoratorNode {
             position: 'absolute',
             top: 0,
             left: 0,
-            width: '100%',
-            height: '100%',
+            right: 0,
+            bottom: 0,
             backgroundImage: `url(${texture})`,
-            backgroundSize: '100% 100%',
-            backgroundPosition: 'center',
-            backgroundRepeat: 'no-repeat',
+            backgroundSize: `${SIZE * FRAMES}px ${SIZE}px`,
+            backgroundPosition: `-${randomOffset * SIZE}px 0`,
             animation: `frame-anim ${1.44}s steps(${FRAMES}) infinite`,
+            WebkitMaskImage: `url(${this.__src})`,
+            WebkitMaskSize: 'contain',
+            WebkitMaskPosition: 'center',
+            WebkitMaskRepeat: 'no-repeat',
+            maskImage: `url(${this.__src})`,
+            maskSize: 'contain',
+            maskPosition: 'center',
+            maskRepeat: 'no-repeat',
             zIndex: 1,
-            clipPath: `url(${this.__src})`,
-            WebkitClipPath: `url(${this.__src})`,
             pointerEvents: 'none',
           }}
         />
