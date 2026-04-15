@@ -80,14 +80,6 @@ export class ImageNode extends DecoratorNode {
 }
 
 function ImageWithTexture({ src, alt, texture, offset }) {
-  const [mounted, setMounted] = React.useState(false);
-  
-  React.useEffect(() => {
-    // Show overlay after mount to ensure image element is in DOM
-    const timer = setTimeout(() => setMounted(true), 50);
-    return () => clearTimeout(timer);
-  }, []);
-  
   if (!src) {
     return null;
   }
@@ -113,6 +105,7 @@ function ImageWithTexture({ src, alt, texture, offset }) {
   
   return (
     <div
+      className="image-note-wrapper"
       style={{
         position: 'relative',
         width: '100%',
@@ -121,6 +114,7 @@ function ImageWithTexture({ src, alt, texture, offset }) {
         marginBottom: '10px',
         borderRadius: '4px',
         overflow: 'hidden',
+        minHeight: '50px',
       }}
     >
       <img
@@ -130,34 +124,35 @@ function ImageWithTexture({ src, alt, texture, offset }) {
           width: '100%',
           height: 'auto',
           display: 'block',
-          opacity: 0,
+          visibility: 'hidden',
+          position: 'absolute',
+          top: 0,
+          left: 0,
         }}
       />
-      {mounted && (
-        <div
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundImage: `url(${texture})`,
-            backgroundSize: `${SIZE * FRAMES}px ${SIZE}px`,
-            backgroundPosition: `-${offset * SIZE}px 0`,
-            animation: `frame-anim ${2.88}s steps(${FRAMES}) infinite`,
-            WebkitMaskImage: `url(${src})`,
-            WebkitMaskSize: 'contain',
-            WebkitMaskPosition: 'center',
-            WebkitMaskRepeat: 'no-repeat',
-            maskImage: `url(${src})`,
-            maskSize: 'contain',
-            maskPosition: 'center',
-            maskRepeat: 'no-repeat',
-            zIndex: 1,
-            pointerEvents: 'none',
-          }}
-        />
-      )}
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundImage: `url(${texture})`,
+          backgroundSize: `${SIZE * FRAMES}px ${SIZE}px`,
+          backgroundPosition: `-${offset * SIZE}px 0`,
+          animation: `frame-anim ${2.88}s steps(${FRAMES}) infinite`,
+          WebkitMaskImage: `url(${src})`,
+          WebkitMaskSize: 'contain',
+          WebkitMaskPosition: 'center',
+          WebkitMaskRepeat: 'no-repeat',
+          maskImage: `url(${src})`,
+          maskSize: 'contain',
+          maskPosition: 'center',
+          maskRepeat: 'no-repeat',
+          zIndex: 1,
+          pointerEvents: 'none',
+        }}
+      />
     </div>
   );
 }
