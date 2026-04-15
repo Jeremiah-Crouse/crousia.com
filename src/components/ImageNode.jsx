@@ -78,8 +78,6 @@ export class ImageNode extends DecoratorNode {
 }
 
 function ImageWithTexture({ src, alt, texture, offset }) {
-  const [loaded, setLoaded] = React.useState(false);
-  
   if (!src) {
     return null;
   }
@@ -124,34 +122,30 @@ function ImageWithTexture({ src, alt, texture, offset }) {
           display: 'block',
           opacity: 0,
         }}
-        onLoad={() => setLoaded(true)}
-        onError={() => setLoaded(true)}
       />
-      {loaded && (
-        <div
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundImage: `url(${texture})`,
-            backgroundSize: `${SIZE * FRAMES}px ${SIZE}px`,
-            backgroundPosition: `-${offset * SIZE}px 0`,
-            animation: `frame-anim ${2.88}s steps(${FRAMES}) infinite`,
-            WebkitMaskImage: `url(${src})`,
-            WebkitMaskSize: 'contain',
-            WebkitMaskPosition: 'center',
-            WebkitMaskRepeat: 'no-repeat',
-            maskImage: `url(${src})`,
-            maskSize: 'contain',
-            maskPosition: 'center',
-            maskRepeat: 'no-repeat',
-            zIndex: 1,
-            pointerEvents: 'none',
-          }}
-        />
-      )}
+      <div
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundImage: `url(${texture})`,
+          backgroundSize: `${SIZE * FRAMES}px ${SIZE}px`,
+          backgroundPosition: `-${offset * SIZE}px 0`,
+          animation: `frame-anim ${2.88}s steps(${FRAMES}) infinite`,
+          WebkitMaskImage: `url(${src})`,
+          WebkitMaskSize: 'contain',
+          WebkitMaskPosition: 'center',
+          WebkitMaskRepeat: 'no-repeat',
+          maskImage: `url(${src})`,
+          maskSize: 'contain',
+          maskPosition: 'center',
+          maskRepeat: 'no-repeat',
+          zIndex: 1,
+          pointerEvents: 'none',
+        }}
+      />
     </div>
   );
 }
