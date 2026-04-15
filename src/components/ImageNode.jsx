@@ -76,16 +76,9 @@ export class ImageNode extends DecoratorNode {
 }
 
 function ImageWithTexture({ src, alt, texture, offset }) {
-  const imgRef = React.useRef(null);
   const [loaded, setLoaded] = React.useState(false);
   
   const isNote = src && src.includes('/notes/');
-  
-  React.useEffect(() => {
-    if (imgRef.current && imgRef.current.complete) {
-      setLoaded(true);
-    }
-  }, []);
   
   if (!isNote) {
     return (
@@ -117,7 +110,6 @@ function ImageWithTexture({ src, alt, texture, offset }) {
       }}
     >
       <img
-        ref={imgRef}
         src={src}
         alt={alt}
         style={{
@@ -127,8 +119,9 @@ function ImageWithTexture({ src, alt, texture, offset }) {
           opacity: 0,
         }}
         onLoad={() => setLoaded(true)}
+        onError={() => setLoaded(true)}
       />
-      {(loaded || (imgRef.current && imgRef.current.complete)) && (
+      {loaded && (
         <div
           style={{
             position: 'absolute',
