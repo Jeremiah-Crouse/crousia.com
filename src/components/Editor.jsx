@@ -88,6 +88,7 @@ function AutoSavePlugin() {
 export default function Editor() {
   const { name: username } = useContext(UserContext) || {};
   const readonly = !isAdmin();
+  const [, forceRender] = React.useState(0);
 
   useEffect(() => {
     return () => cleanupSharedState();
@@ -98,6 +99,12 @@ export default function Editor() {
     () => getSharedProvider({ readonly, username }),
     [readonly, username]
   );
+
+  // Force re-render after mount to ensure Yjs content is loaded
+  useEffect(() => {
+    const timer = setTimeout(() => forceRender(n => n + 1), 100);
+    return () => clearTimeout(timer);
+  }, []);
 
   const initialConfig = {
     namespace: "CrousiaEditor",
