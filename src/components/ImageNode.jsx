@@ -65,12 +65,10 @@ export class ImageNode extends DecoratorNode {
     const src = this.__src || '';
     const altText = this.__altText || '';
     
-    // Wait for valid src that includes notes path
-    if (!src.includes('/notes/')) {
-      return null;
-    }
+    if (!src) return null;
     
-    const offset = (src.charCodeAt(0) + (src.length % FRAMES)) % FRAMES;
+    const isNote = src.includes('/notes/');
+    const offset = isNote ? (src.charCodeAt(0) + (src.length % FRAMES)) % FRAMES : 0;
     
     return (
       <ImageWithTexture 
@@ -78,17 +76,16 @@ export class ImageNode extends DecoratorNode {
         alt={altText}
         texture={texture} 
         offset={offset}
+        isNote={isNote}
       />
     );
   }
 }
 
-function ImageWithTexture({ src, alt, texture, offset }) {
+function ImageWithTexture({ src, alt, texture, offset, isNote }) {
   if (!src) {
     return null;
   }
-  
-  const isNote = src.includes('/notes/');
   
   if (!isNote) {
     return (
