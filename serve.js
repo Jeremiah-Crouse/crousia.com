@@ -234,10 +234,13 @@ app.delete('/api/delete-note', async (req, res) => {
     return res.status(403).json({ error: 'Invalid file deletion request' });
   }
 
-  // Check if this note is referenced in any archive before deleting
+  // Check if this note is referenced in any archive (except TODAY's) before deleting
+  const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD in local time
   if (fs.existsSync(ARCHIVES_DIR)) {
     const archives = fs.readdirSync(ARCHIVES_DIR).filter(f => f.endsWith('.json'));
     for (const archive of archives) {
+      // Skip today's archive - it will be overwritten anyway
+      if (archive === `${today}.json`) continue;
       const content = fs.readFileSync(path.join(ARCHIVES_DIR, archive), 'utf-8');
       if (content.includes(fileName)) {
         console.log(`⛔ NOT deleting ${fileName} - still referenced in ${archive}`);
@@ -303,7 +306,12 @@ app.post('/api/comments/:date', (req, res) => {
 
 app.get('/api/archives', (req, res) => {
   try {
-    const files = fs.readdirSync(ARCHIVES_DIR).filter(f => f.endsWith('.json')).map(f => f.replace('.json', '')).sort().reverse();
+    const today = new Date().toLocaleDateString('en-CA');
+    const files = fs.readdirSync(ARCHIVES_DIR)
+      .filter(f => f.endsWith('.json') && f.replace('.json', '') !== today)
+      .map(f => f.replace('.json', ''))
+      .sort()
+      .reverse();
     res.json({ archives: files });
   } catch (e) {
     res.status(500).json({ error: e.message });
