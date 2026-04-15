@@ -66,8 +66,10 @@ export class ImageNode extends DecoratorNode {
     const src = this.__src || '';
     const altText = this.__altText || '';
     
+    // Key forces re-render on src change
     return (
       <ImageWithTexture 
+        key={src}
         src={src}
         alt={altText}
         texture={texture} 
@@ -78,6 +80,14 @@ export class ImageNode extends DecoratorNode {
 }
 
 function ImageWithTexture({ src, alt, texture, offset }) {
+  const [mounted, setMounted] = React.useState(false);
+  
+  React.useEffect(() => {
+    // Show overlay after mount to ensure image element is in DOM
+    const timer = setTimeout(() => setMounted(true), 50);
+    return () => clearTimeout(timer);
+  }, []);
+  
   if (!src) {
     return null;
   }
@@ -123,29 +133,31 @@ function ImageWithTexture({ src, alt, texture, offset }) {
           opacity: 0,
         }}
       />
-      <div
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundImage: `url(${texture})`,
-          backgroundSize: `${SIZE * FRAMES}px ${SIZE}px`,
-          backgroundPosition: `-${offset * SIZE}px 0`,
-          animation: `frame-anim ${2.88}s steps(${FRAMES}) infinite`,
-          WebkitMaskImage: `url(${src})`,
-          WebkitMaskSize: 'contain',
-          WebkitMaskPosition: 'center',
-          WebkitMaskRepeat: 'no-repeat',
-          maskImage: `url(${src})`,
-          maskSize: 'contain',
-          maskPosition: 'center',
-          maskRepeat: 'no-repeat',
-          zIndex: 1,
-          pointerEvents: 'none',
-        }}
-      />
+      {mounted && (
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundImage: `url(${texture})`,
+            backgroundSize: `${SIZE * FRAMES}px ${SIZE}px`,
+            backgroundPosition: `-${offset * SIZE}px 0`,
+            animation: `frame-anim ${2.88}s steps(${FRAMES}) infinite`,
+            WebkitMaskImage: `url(${src})`,
+            WebkitMaskSize: 'contain',
+            WebkitMaskPosition: 'center',
+            WebkitMaskRepeat: 'no-repeat',
+            maskImage: `url(${src})`,
+            maskSize: 'contain',
+            maskPosition: 'center',
+            maskRepeat: 'no-repeat',
+            zIndex: 1,
+            pointerEvents: 'none',
+          }}
+        />
+      )}
     </div>
   );
 }
