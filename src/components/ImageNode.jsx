@@ -62,18 +62,22 @@ export class ImageNode extends DecoratorNode {
 
   decorate() {
     const texture = TEXTURE_MAP[this.__variant] || TEXTURE_MAP.gold;
-    const offset = (this.__src?.charCodeAt(0) + (this.__src?.length % FRAMES)) % FRAMES;
     const src = this.__src || '';
     const altText = this.__altText || '';
     
-    // Key forces re-render on src change
+    // Wait for valid src that includes notes path
+    if (!src.includes('/notes/')) {
+      return null;
+    }
+    
+    const offset = (src.charCodeAt(0) + (src.length % FRAMES)) % FRAMES;
+    
     return (
       <ImageWithTexture 
-        key={src}
         src={src}
         alt={altText}
         texture={texture} 
-        offset={offset || 0}
+        offset={offset}
       />
     );
   }
@@ -103,9 +107,9 @@ function ImageWithTexture({ src, alt, texture, offset }) {
     );
   }
   
+  // Always show overlay immediately - mask will work when image loads
   return (
     <div
-      className="image-note-wrapper"
       style={{
         position: 'relative',
         width: '100%',
@@ -114,7 +118,6 @@ function ImageWithTexture({ src, alt, texture, offset }) {
         marginBottom: '10px',
         borderRadius: '4px',
         overflow: 'hidden',
-        minHeight: '50px',
       }}
     >
       <img
@@ -124,11 +127,9 @@ function ImageWithTexture({ src, alt, texture, offset }) {
           width: '100%',
           height: 'auto',
           display: 'block',
-          visibility: 'hidden',
-          position: 'absolute',
-          top: 0,
-          left: 0,
+          opacity: 0,
         }}
+        loading="lazy"
       />
       <div
         style={{
