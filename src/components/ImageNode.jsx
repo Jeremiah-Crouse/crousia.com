@@ -62,14 +62,16 @@ export class ImageNode extends DecoratorNode {
 
   decorate() {
     const texture = TEXTURE_MAP[this.__variant] || TEXTURE_MAP.gold;
-    const offset = (this.__src.charCodeAt(0) + (this.__src.length % FRAMES)) % FRAMES;
+    const offset = (this.__src?.charCodeAt(0) + (this.__src?.length % FRAMES)) % FRAMES;
+    const src = this.__src || '';
+    const altText = this.__altText || '';
     
     return (
       <ImageWithTexture 
-        src={this.__src} 
-        alt={this.__altText} 
+        src={src}
+        alt={altText}
         texture={texture} 
-        offset={offset} 
+        offset={offset || 0}
       />
     );
   }
@@ -78,9 +80,17 @@ export class ImageNode extends DecoratorNode {
 function ImageWithTexture({ src, alt, texture, offset }) {
   const [loaded, setLoaded] = React.useState(false);
   
-  const isNote = src && src.includes('/notes/');
+  console.log('🎨 ImageWithTexture render:', { src, loaded, offset, texture });
+  
+  if (!src || src === 'undefined' || src === 'null') {
+    return <div className="debug-image-error">No src provided</div>;
+  }
+  
+  const isNote = src.includes('/notes/');
+  console.log('🎨 isNote:', isNote, 'src:', src);
   
   if (!isNote) {
+    console.log('🎨 Rendering regular image');
     return (
       <img
         src={src}
@@ -116,10 +126,16 @@ function ImageWithTexture({ src, alt, texture, offset }) {
           width: '100%',
           height: 'auto',
           display: 'block',
-          opacity: 0,
+          opacity: loaded ? 0 : 0,
         }}
-        onLoad={() => setLoaded(true)}
-        onError={() => setLoaded(true)}
+        onLoad={() => {
+          console.log('🎨 Image loaded:', src);
+          setLoaded(true);
+        }}
+        onError={(e) => {
+          console.log('🎨 Image error:', src, e);
+          setLoaded(true);
+        }}
       />
       {loaded && (
         <div
