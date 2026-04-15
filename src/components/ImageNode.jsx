@@ -80,17 +80,13 @@ export class ImageNode extends DecoratorNode {
 function ImageWithTexture({ src, alt, texture, offset }) {
   const [loaded, setLoaded] = React.useState(false);
   
-  console.log('🎨 ImageWithTexture render:', { src, loaded, offset, texture });
-  
-  if (!src || src === 'undefined' || src === 'null') {
-    return <div className="debug-image-error">No src provided</div>;
+  if (!src) {
+    return null;
   }
   
   const isNote = src.includes('/notes/');
-  console.log('🎨 isNote:', isNote, 'src:', src);
   
   if (!isNote) {
-    console.log('🎨 Rendering regular image');
     return (
       <img
         src={src}
@@ -126,16 +122,10 @@ function ImageWithTexture({ src, alt, texture, offset }) {
           width: '100%',
           height: 'auto',
           display: 'block',
-          opacity: loaded ? 0 : 0,
+          opacity: 0,
         }}
-        onLoad={() => {
-          console.log('🎨 Image loaded:', src);
-          setLoaded(true);
-        }}
-        onError={(e) => {
-          console.log('🎨 Image error:', src, e);
-          setLoaded(true);
-        }}
+        onLoad={() => setLoaded(true)}
+        onError={() => setLoaded(true)}
       />
       {loaded && (
         <div
