@@ -94,8 +94,8 @@ function smoothstep(edge0, edge1, x) {
 }
 
 function renderGoldPixel(uvX, uvY, time, colors) {
-  // Simple diagonal wave - clearly periodic and tileable
-  const wave = Math.sin((uvX + uvY) * 2 * Math.PI + time);
+  // Flip vertically by using (1 - uvY)
+  const wave = Math.sin((uvX + (1 - uvY)) * 2 * Math.PI + time);
   const blend = wave * 0.5 + 0.5;
 
   let color = mixColor(colors[0], colors[1], blend);
@@ -105,7 +105,7 @@ function renderGoldPixel(uvX, uvY, time, colors) {
 }
 
 function renderEmeraldPixel(uvX, uvY, time, colors) {
-  const wave = Math.sin((uvX + uvY) * 2 * Math.PI + time);
+  const wave = Math.sin((uvX + (1 - uvY)) * 2 * Math.PI + time);
   const blend = wave * 0.5 + 0.5;
 
   let color = mixColor(colors[0], colors[1], blend);
@@ -115,7 +115,7 @@ function renderEmeraldPixel(uvX, uvY, time, colors) {
 }
 
 function renderPurplePixel(uvX, uvY, time, colors) {
-  const wave = Math.sin((uvX + uvY) * 2 * Math.PI + time);
+  const wave = Math.sin((uvX + (1 - uvY)) * 2 * Math.PI + time);
   const blend = wave * 0.5 + 0.5;
 
   let color = mixColor(colors[0], colors[1], blend);
