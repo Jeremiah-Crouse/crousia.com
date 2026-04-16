@@ -1,0 +1,1380 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Crousian Font Builder</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=IM+Fell+English:ital@0;1&display=swap');
+
+  :root {
+    --gold: #d4af37;
+    --gold-light: #f0d060;
+    --gold-dim: #8a6f1a;
+    --bg: #080810;
+    --bg2: #0e0e1a;
+    --bg3: #141428;
+    --text: #e8e0d0;
+    --text-dim: #888070;
+    --star: rgba(255,255,255,0.8);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'IM Fell English', Georgia, serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+    position: relative;
+  }
+
+  /* Starfield */
+  #stars {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    position: relative;
+    z-index: 1;
+    max-width: 700px;
+    margin: 0 auto;
+    padding: 40px 24px 80px;
+  }
+
+  header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+
+  .crown {
+    font-size: 2rem;
+    margin-bottom: 8px;
+    filter: drop-shadow(0 0 12px var(--gold));
+  }
+
+  h1 {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(1.6rem, 5vw, 2.8rem);
+    background: linear-gradient(135deg, var(--gold-dim), var(--gold-light), var(--gold), var(--gold-dim));
+    background-size: 200% 200%;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    animation: shimmer 4s ease infinite;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+  }
+
+  @keyframes shimmer {
+    0%, 100% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+  }
+
+  .subtitle {
+    color: var(--text-dim);
+    font-style: italic;
+    font-size: 0.95rem;
+  }
+
+  /* Progress bar */
+  .progress-section {
+    margin-bottom: 32px;
+  }
+
+  .progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    margin-bottom: 8px;
+    font-family: 'Cinzel', serif;
+    letter-spacing: 0.05em;
+  }
+
+  .progress-bar {
+    height: 3px;
+    background: var(--bg3);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--gold-dim), var(--gold));
+    border-radius: 2px;
+    transition: width 0.5s ease;
+    box-shadow: 0 0 8px var(--gold);
+  }
+
+  /* Alphabet grid */
+  .alphabet-grid {
+    display: grid;
+    grid-template-columns: repeat(13, 1fr);
+    gap: 4px;
+    margin-bottom: 32px;
+  }
+
+  .glyph-cell {
+    aspect-ratio: 1;
+    border: 1px solid var(--bg3);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'Cinzel', serif;
+    font-size: clamp(0.6rem, 1.5vw, 0.85rem);
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    color: var(--text-dim);
+    background: var(--bg2);
+  }
+
+  .glyph-cell.done {
+    border-color: var(--gold-dim);
+    background: rgba(212,175,55,0.08);
+    color: var(--gold);
+  }
+
+  .glyph-cell.active {
+    border-color: var(--gold);
+    background: rgba(212,175,55,0.15);
+    color: var(--gold-light);
+    box-shadow: 0 0 12px rgba(212,175,55,0.3);
+    animation: pulse-cell 2s ease infinite;
+  }
+
+  @keyframes pulse-cell {
+    0%, 100% { box-shadow: 0 0 12px rgba(212,175,55,0.3); }
+    50% { box-shadow: 0 0 20px rgba(212,175,55,0.6); }
+  }
+
+  .glyph-cell.done::after {
+    content: '✓';
+    position: absolute;
+    bottom: 1px;
+    right: 3px;
+    font-size: 0.5rem;
+    color: var(--gold-dim);
+    font-family: sans-serif;
+  }
+
+  /* Main card */
+  .card {
+    background: var(--bg2);
+    border: 1px solid rgba(212,175,55,0.2);
+    border-radius: 12px;
+    padding: 32px;
+    margin-bottom: 24px;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  }
+
+  .letter-prompt {
+    text-align: center;
+    margin-bottom: 28px;
+  }
+
+  .letter-display {
+    font-family: 'Cinzel', serif;
+    font-size: clamp(4rem, 15vw, 8rem);
+    background: linear-gradient(135deg, var(--gold-dim), var(--gold-light), var(--gold));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    line-height: 1;
+    filter: drop-shadow(0 0 20px rgba(212,175,55,0.4));
+  }
+
+  .letter-name {
+    font-family: 'Cinzel', serif;
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    letter-spacing: 0.15em;
+    margin-top: 4px;
+  }
+
+  /* Upload zone */
+  .upload-zone {
+    border: 2px dashed rgba(212,175,55,0.3);
+    border-radius: 8px;
+    padding: 32px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s;
+    position: relative;
+  }
+
+  .upload-zone:hover, .upload-zone.dragover {
+    border-color: var(--gold);
+    background: rgba(212,175,55,0.05);
+  }
+
+  .upload-zone input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+  }
+
+  .upload-icon {
+    font-size: 2.5rem;
+    margin-bottom: 12px;
+    opacity: 0.6;
+  }
+
+  .upload-text {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+  }
+
+  .upload-text strong {
+    color: var(--gold);
+    display: block;
+    font-size: 1rem;
+    margin-bottom: 4px;
+    font-family: 'Cinzel', serif;
+  }
+
+  /* Preview area */
+  .preview-area {
+    display: none;
+    margin-top: 20px;
+  }
+
+  .preview-area.visible { display: block; }
+
+  .preview-row {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    margin-bottom: 16px;
+  }
+
+  .preview-box {
+    flex: 1;
+    text-align: center;
+  }
+
+  .preview-box label {
+    display: block;
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    font-family: 'Cinzel', serif;
+    letter-spacing: 0.1em;
+    margin-bottom: 8px;
+  }
+
+  .preview-box canvas {
+    border: 1px solid rgba(212,175,55,0.2);
+    border-radius: 4px;
+    max-width: 100%;
+    background: #000;
+  }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    flex: 1;
+    min-width: 120px;
+    padding: 12px 20px;
+    border: none;
+    border-radius: 6px;
+    font-family: 'Cinzel', serif;
+    font-size: 0.8rem;
+    letter-spacing: 0.1em;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--gold-dim), var(--gold));
+    color: #080810;
+    font-weight: 700;
+  }
+
+  .btn-primary:hover {
+    background: linear-gradient(135deg, var(--gold), var(--gold-light));
+    box-shadow: 0 4px 16px rgba(212,175,55,0.4);
+    transform: translateY(-1px);
+  }
+
+  .btn-primary:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    transform: none;
+  }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--text-dim);
+    border: 1px solid var(--bg3);
+  }
+
+  .btn-secondary:hover {
+    border-color: var(--gold-dim);
+    color: var(--text);
+  }
+
+  .btn-danger {
+    background: transparent;
+    color: #a05050;
+    border: 1px solid #3a2020;
+    flex: 0;
+    min-width: auto;
+  }
+
+  .btn-danger:hover {
+    border-color: #a05050;
+    color: #e08080;
+  }
+
+  /* Threshold slider */
+  .threshold-control {
+    margin: 12px 0;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .threshold-control label {
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    font-family: 'Cinzel', serif;
+    white-space: nowrap;
+  }
+
+  .threshold-control input[type=range] {
+    flex: 1;
+    accent-color: var(--gold);
+  }
+
+  .threshold-control span {
+    font-size: 0.75rem;
+    color: var(--gold);
+    width: 30px;
+    text-align: right;
+  }
+
+  /* Export section */
+  .export-section {
+    display: none;
+    text-align: center;
+    padding: 32px;
+  }
+
+  .export-section.visible { display: block; }
+
+  .export-section h2 {
+    font-family: 'Cinzel', serif;
+    font-size: 1.4rem;
+    background: linear-gradient(135deg, var(--gold-dim), var(--gold-light));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 8px;
+  }
+
+  .export-section p {
+    color: var(--text-dim);
+    font-size: 0.9rem;
+    margin-bottom: 24px;
+    font-style: italic;
+  }
+
+  .font-preview-text {
+    background: var(--bg3);
+    border: 1px solid rgba(212,175,55,0.15);
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 20px;
+    font-size: 1.2rem;
+    line-height: 1.8;
+    color: var(--text);
+    text-align: left;
+    letter-spacing: 0.05em;
+  }
+
+  /* Tips */
+  .tips {
+    background: rgba(212,175,55,0.05);
+    border-left: 2px solid var(--gold-dim);
+    border-radius: 0 6px 6px 0;
+    padding: 16px 20px;
+    margin-bottom: 24px;
+  }
+
+  .tips h3 {
+    font-family: 'Cinzel', serif;
+    font-size: 0.75rem;
+    color: var(--gold);
+    letter-spacing: 0.1em;
+    margin-bottom: 10px;
+  }
+
+  .tips ul {
+    list-style: none;
+    padding: 0;
+  }
+
+  .tips li {
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    padding: 3px 0;
+    padding-left: 14px;
+    position: relative;
+  }
+
+  .tips li::before {
+    content: '◆';
+    position: absolute;
+    left: 0;
+    font-size: 0.4rem;
+    color: var(--gold-dim);
+    top: 6px;
+  }
+
+  /* Status message */
+  .status {
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--gold);
+    font-style: italic;
+    min-height: 24px;
+    margin-top: 12px;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--gold-dim); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<canvas id="stars"></canvas>
+
+<div class="container">
+  <header>
+    <div class="crown">♛</div>
+    <h1>Crousian Font Builder</h1>
+    <p class="subtitle">Forge your kingdom's typeface, one letter at a time</p>
+  </header>
+
+  <div class="tips">
+    <h3>Royal Decree — Best Results</h3>
+    <ul>
+      <li>Write large on white or light paper with a dark pen</li>
+      <li>Good lighting, no shadows across the letter</li>
+      <li>One letter per photo, centered</li>
+      <li>Shoot straight-on, not at an angle</li>
+      <li>Adjust the threshold slider if the preview looks wrong</li>
+    </ul>
+  </div>
+
+  <div class="progress-section">
+    <div class="progress-label">
+      <span>GLYPHS COLLECTED</span>
+      <span id="progress-count">0 / 52</span>
+    </div>
+    <div class="progress-bar">
+      <div class="progress-fill" id="progress-fill" style="width:0%"></div>
+    </div>
+  </div>
+
+  <div class="alphabet-grid" id="alphabet-grid"></div>
+
+  <div class="card" id="main-card">
+    <div class="letter-prompt">
+      <div class="letter-display" id="letter-display">A</div>
+      <div class="letter-name" id="letter-name">UPPERCASE A</div>
+    </div>
+
+    <div class="upload-zone" id="upload-zone">
+      <input type="file" id="file-input" accept="image/*" capture="environment">
+      <div class="upload-icon">📷</div>
+      <div class="upload-text">
+        <strong>Tap to photograph or upload</strong>
+        Snap a photo of the letter shown above
+      </div>
+    </div>
+
+    <div class="threshold-control">
+      <label>Ink threshold</label>
+      <input type="range" id="threshold" min="30" max="220" value="120">
+      <span id="threshold-val">120</span>
+    </div>
+
+    <div class="preview-area" id="preview-area">
+      <div class="preview-row">
+        <div class="preview-box">
+          <label>ORIGINAL</label>
+          <canvas id="canvas-original" width="160" height="160"></canvas>
+        </div>
+        <div class="preview-box">
+          <label>EXTRACTED GLYPH</label>
+          <canvas id="canvas-processed" width="160" height="160"></canvas>
+        </div>
+      </div>
+      <div class="controls">
+        <button class="btn btn-primary" id="btn-accept">Accept & Next →</button>
+        <button class="btn btn-secondary" id="btn-retake">Retake</button>
+      </div>
+    </div>
+
+    <div class="status" id="status"></div>
+  </div>
+
+  <div class="card export-section" id="export-section">
+    <h2>The Font is Ready</h2>
+    <p>All glyphs have been collected. Your kingdom has a typeface.</p>
+    <div class="font-preview-text" id="font-preview-text">
+      ABCDEFGHIJKLMNOPQRSTUVWXYZ<br>
+      abcdefghijklmnopqrstuvwxyz
+    </div>
+    <div class="controls" style="justify-content:center">
+      <button class="btn btn-primary" id="btn-download" style="flex:0;min-width:200px">
+        ⬇ Download .ttf
+      </button>
+      <button class="btn btn-secondary" id="btn-continue" style="flex:0;min-width:160px">
+        Keep Adding
+      </button>
+    </div>
+  </div>
+
+  <div style="text-align:center;margin-top:16px">
+    <button class="btn btn-danger" id="btn-reset" style="font-size:0.7rem;padding:8px 16px">
+      Reset All
+    </button>
+  </div>
+</div>
+
+<script>
+// ── Starfield ─────────────────────────────────────────────────────────────────
+(function() {
+  const canvas = document.getElementById('stars');
+  const ctx = canvas.getContext('2d');
+  let stars = [];
+
+  function resize() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }
+
+  function initStars() {
+    stars = [];
+    for (let i = 0; i < 200; i++) {
+      stars.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        r: Math.random() * 1.2,
+        a: Math.random(),
+        speed: 0.003 + Math.random() * 0.005
+      });
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    stars.forEach(s => {
+      s.a += s.speed;
+      const alpha = (Math.sin(s.a) + 1) / 2 * 0.8 + 0.1;
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(255,255,255,${alpha})`;
+      ctx.fill();
+    });
+    requestAnimationFrame(draw);
+  }
+
+  window.addEventListener('resize', () => { resize(); initStars(); });
+  resize(); initStars(); draw();
+})();
+
+// ── Font Builder State ────────────────────────────────────────────────────────
+const LETTERS = 'AaBbCcDdEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsTtUuVvWwXxYyZz'.split('');
+const LETTER_NAMES = {
+  'A':'UPPERCASE A','a':'lowercase a','B':'UPPERCASE B','b':'lowercase b',
+  'C':'UPPERCASE C','c':'lowercase c','D':'UPPERCASE D','d':'lowercase d',
+  'E':'UPPERCASE E','e':'lowercase e','F':'UPPERCASE F','f':'lowercase f',
+  'G':'UPPERCASE G','g':'lowercase g','H':'UPPERCASE H','h':'lowercase h',
+  'I':'UPPERCASE I','i':'lowercase i','J':'UPPERCASE J','j':'lowercase j',
+  'K':'UPPERCASE K','k':'lowercase k','L':'UPPERCASE L','l':'lowercase l',
+  'M':'UPPERCASE M','m':'lowercase m','N':'UPPERCASE N','n':'lowercase n',
+  'O':'UPPERCASE O','o':'lowercase o','P':'UPPERCASE P','p':'lowercase p',
+  'Q':'UPPERCASE Q','q':'lowercase q','R':'UPPERCASE R','r':'lowercase r',
+  'S':'UPPERCASE S','s':'lowercase s','T':'UPPERCASE T','t':'lowercase t',
+  'U':'UPPERCASE U','u':'lowercase u','V':'UPPERCASE V','v':'lowercase v',
+  'W':'UPPERCASE W','w':'lowercase w','X':'UPPERCASE X','x':'lowercase x',
+  'Y':'UPPERCASE Y','y':'lowercase y','Z':'UPPERCASE Z','z':'lowercase z'
+};
+
+let glyphData = {}; // letter -> {imageData, width, height, advance}
+let currentIdx = 0;
+let currentImageData = null;
+let threshold = 120;
+
+// ── Build alphabet grid ───────────────────────────────────────────────────────
+const grid = document.getElementById('alphabet-grid');
+LETTERS.forEach((letter, idx) => {
+  const cell = document.createElement('div');
+  cell.className = 'glyph-cell' + (idx === 0 ? ' active' : '');
+  cell.id = `cell-${letter.charCodeAt(0)}`;
+  cell.textContent = letter;
+  cell.title = LETTER_NAMES[letter];
+  cell.addEventListener('click', () => jumpTo(idx));
+  grid.appendChild(cell);
+});
+
+function jumpTo(idx) {
+  currentIdx = idx;
+  updatePrompt();
+  clearPreview();
+}
+
+function updatePrompt() {
+  const letter = LETTERS[currentIdx];
+  document.getElementById('letter-display').textContent = letter;
+  document.getElementById('letter-name').textContent = LETTER_NAMES[letter];
+
+  // Update grid highlight
+  document.querySelectorAll('.glyph-cell').forEach((c, i) => {
+    c.classList.toggle('active', i === currentIdx);
+  });
+
+  updateProgress();
+  checkExport();
+}
+
+function updateProgress() {
+  const done = Object.keys(glyphData).length;
+  document.getElementById('progress-count').textContent = `${done} / 52`;
+  document.getElementById('progress-fill').style.width = `${(done/52)*100}%`;
+}
+
+function clearPreview() {
+  document.getElementById('preview-area').classList.remove('visible');
+  document.getElementById('file-input').value = '';
+  currentImageData = null;
+  document.getElementById('status').textContent = '';
+  document.getElementById('upload-zone').style.display = 'block';
+}
+
+// ── File input ────────────────────────────────────────────────────────────────
+document.getElementById('file-input').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = evt => loadImage(evt.target.result);
+  reader.readAsDataURL(file);
+});
+
+const uploadZone = document.getElementById('upload-zone');
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault();
+  uploadZone.classList.remove('dragover');
+  const file = e.dataTransfer.files[0];
+  if (file) { const r = new FileReader(); r.onload = ev => loadImage(ev.target.result); r.readAsDataURL(file); }
+});
+
+function loadImage(src) {
+  const img = new Image();
+  img.onload = () => {
+    // Draw original preview (scaled)
+    const origCanvas = document.getElementById('canvas-original');
+    const oc = origCanvas.getContext('2d');
+    const size = 160;
+    origCanvas.width = size; origCanvas.height = size;
+    const scale = Math.min(size/img.width, size/img.height);
+    const sw = img.width * scale, sh = img.height * scale;
+    oc.fillStyle = '#000';
+    oc.fillRect(0, 0, size, size);
+    oc.drawImage(img, (size-sw)/2, (size-sh)/2, sw, sh);
+
+    currentImageData = img;
+    processGlyph();
+    document.getElementById('preview-area').classList.add('visible');
+    document.getElementById('upload-zone').style.display = 'none';
+  };
+  img.src = src;
+}
+
+// ── Threshold slider ──────────────────────────────────────────────────────────
+document.getElementById('threshold').addEventListener('input', function() {
+  threshold = parseInt(this.value);
+  document.getElementById('threshold-val').textContent = threshold;
+  if (currentImageData) processGlyph();
+});
+
+// ── Process glyph ─────────────────────────────────────────────────────────────
+function processGlyph() {
+  if (!currentImageData) return;
+  const img = currentImageData;
+
+  // Render to offscreen canvas
+  const offscreen = document.createElement('canvas');
+  offscreen.width = img.width;
+  offscreen.height = img.height;
+  const octx = offscreen.getContext('2d');
+  octx.drawImage(img, 0, 0);
+
+  const idata = octx.getImageData(0, 0, img.width, img.height);
+  const d = idata.data;
+
+  // Grayscale + threshold
+  const mask = new Uint8Array(img.width * img.height);
+  for (let i = 0; i < d.length; i += 4) {
+    const gray = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+    mask[i/4] = gray < threshold ? 1 : 0;
+  }
+
+  // Find bounding box of ink pixels
+  let minX = img.width, maxX = 0, minY = img.height, maxY = 0;
+  for (let y = 0; y < img.height; y++) {
+    for (let x = 0; x < img.width; x++) {
+      if (mask[y * img.width + x]) {
+        if (x < minX) minX = x;
+        if (x > maxX) maxX = x;
+        if (y < minY) minY = y;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+
+  if (maxX <= minX || maxY <= minY) {
+    document.getElementById('status').textContent = 'No ink detected — try lowering the threshold.';
+    return;
+  }
+
+  const cropW = maxX - minX + 1;
+  const cropH = maxY - minY + 1;
+  const pad = Math.floor(Math.min(cropW, cropH) * 0.1);
+
+  // Draw processed preview
+  const procCanvas = document.getElementById('canvas-processed');
+  const pc = procCanvas.getContext('2d');
+  const size = 160;
+  procCanvas.width = size; procCanvas.height = size;
+  pc.fillStyle = '#000';
+  pc.fillRect(0, 0, size, size);
+
+  const scale = Math.min((size - pad*2) / cropW, (size - pad*2) / cropH);
+  const drawW = cropW * scale, drawH = cropH * scale;
+  const offX = (size - drawW) / 2;
+  const offY = (size - drawH) / 2;
+
+  pc.fillStyle = '#fff';
+  for (let y = minY; y <= maxY; y++) {
+    for (let x = minX; x <= maxX; x++) {
+      if (mask[y * img.width + x]) {
+        pc.fillRect(
+          offX + (x - minX) * scale,
+          offY + (y - minY) * scale,
+          Math.ceil(scale), Math.ceil(scale)
+        );
+      }
+    }
+  }
+
+  // Store raw data for font building
+  const letter = LETTERS[currentIdx];
+  const advanceWidth = Math.round(cropW * 1.1); // slight padding
+  window._pendingGlyph = { mask, imgW: img.width, imgH: img.height, minX, minY, maxX, maxY, cropW, cropH, letter, advance: advanceWidth };
+  document.getElementById('status').textContent = `Glyph extracted — ${cropW}×${cropH}px. Looks good?`;
+}
+
+// ── Accept glyph ──────────────────────────────────────────────────────────────
+document.getElementById('btn-accept').addEventListener('click', () => {
+  if (!window._pendingGlyph) return;
+  const g = window._pendingGlyph;
+
+  // Mark cell done
+  const cell = document.getElementById(`cell-${g.letter.charCodeAt(0)}`);
+  if (cell) { cell.classList.remove('active'); cell.classList.add('done'); }
+
+  glyphData[g.letter] = g;
+  updateProgress();
+
+  // Find next letter without data
+  let nextIdx = -1;
+  for (let i = currentIdx + 1; i < LETTERS.length; i++) {
+    if (!glyphData[LETTERS[i]]) { nextIdx = i; break; }
+  }
+  if (nextIdx === -1) {
+    for (let i = 0; i < currentIdx; i++) {
+      if (!glyphData[LETTERS[i]]) { nextIdx = i; break; }
+    }
+  }
+
+  if (nextIdx === -1) {
+    // All done
+    showExport();
+  } else {
+    currentIdx = nextIdx;
+    updatePrompt();
+    clearPreview();
+  }
+});
+
+// ── Retake ────────────────────────────────────────────────────────────────────
+document.getElementById('btn-retake').addEventListener('click', () => {
+  clearPreview();
+});
+
+// ── Check if can export ───────────────────────────────────────────────────────
+function checkExport() {
+  const done = Object.keys(glyphData).length;
+  if (done >= 52) showExport();
+}
+
+function showExport() {
+  document.getElementById('export-section').classList.add('visible');
+  document.getElementById('export-section').scrollIntoView({ behavior: 'smooth' });
+}
+
+document.getElementById('btn-continue').addEventListener('click', () => {
+  document.getElementById('export-section').classList.remove('visible');
+});
+
+// ── Build & Download TTF ──────────────────────────────────────────────────────
+document.getElementById('btn-download').addEventListener('click', buildFont);
+
+function buildFont() {
+  const btn = document.getElementById('btn-download');
+  btn.textContent = '⏳ Building...';
+  btn.disabled = true;
+
+  setTimeout(() => {
+    try {
+      const ttf = generateTTF();
+      const blob = new Blob([ttf], { type: 'font/ttf' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'Crousian.ttf';
+      a.click();
+      URL.revokeObjectURL(url);
+      btn.textContent = '✓ Downloaded!';
+      setTimeout(() => { btn.textContent = '⬇ Download .ttf'; btn.disabled = false; }, 3000);
+    } catch(e) {
+      console.error(e);
+      btn.textContent = '✗ Error — see console';
+      btn.disabled = false;
+    }
+  }, 50);
+}
+
+// ── TTF Generator ─────────────────────────────────────────────────────────────
+// Hand-rolled minimal TTF writer — produces a valid OpenType/TrueType font
+function generateTTF() {
+  const UPEM = 1000;
+  const ASCENDER = 800;
+  const DESCENDER = -200;
+  const CAP_HEIGHT = 700;
+
+  // Convert each glyph bitmap to contour points (font coordinates)
+  const glyphs = {};
+
+  for (const [letter, g] of Object.entries(glyphData)) {
+    const scale = CAP_HEIGHT / g.cropH;
+    const advW = Math.max(Math.round(g.cropW * scale * 1.1), 200);
+
+    // Simple outline: trace rows to build a polygon
+    // For a real font we'd do proper contour tracing, but we'll
+    // build a simplified version using the bitmap outline
+    const pts = traceBitmap(g, scale, CAP_HEIGHT);
+    glyphs[letter] = { pts, advance: advW };
+  }
+
+  return writeTTF(glyphs, UPEM, ASCENDER, DESCENDER, CAP_HEIGHT);
+}
+
+function traceBitmap(g, scale, capHeight) {
+  // Use marching squares / simplified contour for each glyph
+  const { mask, imgW, imgH, minX, minY, cropW, cropH } = g;
+  const pts = [];
+
+  // Simple approach: find outline pixels and convert coords
+  // Walk the bounding box, collect edge pixels
+  const step = Math.max(1, Math.floor(1 / scale));
+
+  for (let y = minY; y <= g.maxY; y += step) {
+    for (let x = minX; x <= g.maxX; x += step) {
+      const here = mask[y * imgW + x];
+      const right = x + 1 <= g.maxX ? mask[y * imgW + (x+1)] : 0;
+      const down = y + 1 <= g.maxY ? mask[(y+1) * imgW + x] : 0;
+      if (here !== right || here !== down) {
+        pts.push([
+          Math.round((x - minX) * scale),
+          Math.round(capHeight - (y - minY) * scale)
+        ]);
+      }
+    }
+  }
+
+  return pts;
+}
+
+function writeTTF(glyphs, upem, ascender, descender, capHeight) {
+  // Build glyph outlines as simple convex hulls from traced points
+  // (Real font would use bezier curves — this gives a stylized hand-drawn look)
+
+  const glyphNames = ['.notdef', 'space', ...Object.keys(glyphs).sort()];
+  const charMap = {};
+  Object.keys(glyphs).forEach(l => { charMap[l.charCodeAt(0)] = l; });
+  charMap[32] = 'space';
+
+  // We'll build the TTF binary table by table
+  const tables = {};
+
+  // head
+  tables.head = buildHead(upem);
+
+  // hhea
+  tables.hhea = buildHhea(ascender, descender, glyphNames.length);
+
+  // maxp
+  tables.maxp = buildMaxp(glyphNames.length);
+
+  // OS/2
+  tables['OS/2'] = buildOS2(ascender, descender, capHeight);
+
+  // hmtx + advance widths
+  const advances = {};
+  advances['.notdef'] = 500;
+  advances['space'] = 280;
+  Object.keys(glyphs).forEach(l => { advances[l] = glyphs[l].advance; });
+  tables.hmtx = buildHmtx(glyphNames, advances);
+
+  // cmap
+  tables.cmap = buildCmap(charMap, glyphNames);
+
+  // glyf + loca
+  const { glyf, loca } = buildGlyf(glyphNames, glyphs, advances);
+  tables.glyf = glyf;
+  tables.loca = loca;
+
+  // name
+  tables.name = buildName();
+
+  // post
+  tables.post = buildPost();
+
+  return assembleTTF(tables);
+}
+
+// ── TTF Table Builders ────────────────────────────────────────────────────────
+class BufWriter {
+  constructor() { this.buf = []; }
+  u8(v) { this.buf.push(v & 0xFF); }
+  u16(v) { this.u8((v>>8)&0xFF); this.u8(v&0xFF); }
+  s16(v) { this.u16(v < 0 ? v + 65536 : v); }
+  u32(v) { this.u8((v>>24)&0xFF); this.u8((v>>16)&0xFF); this.u8((v>>8)&0xFF); this.u8(v&0xFF); }
+  s32(v) { this.u32(v < 0 ? v + 4294967296 : v); }
+  fixed(v) { this.u32(Math.round(v * 65536)); }
+  str(s) { for(let i=0;i<s.length;i++) this.u8(s.charCodeAt(i)); }
+  u16str(s) { for(let i=0;i<s.length;i++) { this.u8(0); this.u8(s.charCodeAt(i)); } }
+  pad4() { while(this.buf.length % 4) this.u8(0); }
+  bytes() { return new Uint8Array(this.buf); }
+  length() { return this.buf.length; }
+}
+
+function buildHead(upem) {
+  const b = new BufWriter();
+  b.fixed(1.0);       // version
+  b.fixed(1.0);       // fontRevision
+  b.u32(0xB1B0AFBA);  // checkSumAdjustment placeholder
+  b.u32(0x5F0F3CF5);  // magicNumber
+  b.u16(0x000B);      // flags
+  b.u16(upem);        // unitsPerEm
+  // created/modified (mac timestamp)
+  const now = Math.floor(Date.now()/1000) + 2082844800;
+  b.u32(0); b.u32(now);
+  b.u32(0); b.u32(now);
+  // bounding box (approximate)
+  b.s16(0); b.s16(-200); b.s16(1200); b.s16(800);
+  b.u16(0);  // macStyle
+  b.u16(8);  // lowestRecPPEM
+  b.s16(2);  // fontDirectionHint
+  b.s16(0);  // indexToLocFormat (short)
+  b.s16(0);  // glyphDataFormat
+  return b.bytes();
+}
+
+function buildHhea(ascender, descender, numGlyphs) {
+  const b = new BufWriter();
+  b.fixed(1.0);
+  b.s16(ascender);
+  b.s16(descender);
+  b.s16(0);   // lineGap
+  b.u16(1200);// advanceWidthMax
+  b.s16(0); b.s16(0); b.s16(0); b.s16(0);
+  b.s16(0); b.s16(0); b.s16(0);
+  b.u16(numGlyphs);
+  return b.bytes();
+}
+
+function buildMaxp(numGlyphs) {
+  const b = new BufWriter();
+  b.fixed(1.0);
+  b.u16(numGlyphs);
+  b.u16(100); // maxPoints
+  b.u16(10);  // maxContours
+  b.u16(0); b.u16(0); b.u16(0); b.u16(0);
+  b.u16(2);  // maxZones
+  b.u16(0); b.u16(0); b.u16(0); b.u16(0); b.u16(0);
+  return b.bytes();
+}
+
+function buildOS2(ascender, descender, capHeight) {
+  const b = new BufWriter();
+  b.u16(4);     // version
+  b.s16(500);   // xAvgCharWidth
+  b.u16(400);   // usWeightClass
+  b.u16(5);     // usWidthClass
+  b.u16(0);     // fsType
+  b.s16(50); b.s16(50); b.s16(50); b.s16(50); // subscript/superscript
+  b.s16(50); b.s16(50);
+  b.s16(100); b.s16(50); // strikeout
+  b.s16(0);     // sFamilyClass
+  // panose
+  for(let i=0;i<10;i++) b.u8(0);
+  b.u32(1); b.u32(0); b.u32(0); b.u32(0); // ulUnicodeRange
+  b.str('    '); // achVendID
+  b.u16(0x0040); // fsSelection REGULAR
+  b.u16(32);    // usFirstCharIndex
+  b.u16(122);   // usLastCharIndex
+  b.s16(ascender);
+  b.s16(descender);
+  b.s16(0);     // sTypoLineGap
+  b.u16(ascender);  // usWinAscent
+  b.u16(Math.abs(descender)); // usWinDescent
+  b.u32(1); b.u32(0); // codepage ranges
+  b.s16(capHeight); // sxHeight
+  b.s16(capHeight); // sCapHeight
+  b.u16(0); b.u16(1); b.u16(0);
+  return b.bytes();
+}
+
+function buildHmtx(glyphNames, advances) {
+  const b = new BufWriter();
+  glyphNames.forEach(name => {
+    b.u16(advances[name] || 500);
+    b.s16(0); // lsb
+  });
+  return b.bytes();
+}
+
+function buildCmap(charMap, glyphNames) {
+  const nameToIdx = {};
+  glyphNames.forEach((n,i) => { nameToIdx[n] = i; });
+
+  // Format 4 cmap
+  const entries = Object.entries(charMap)
+    .map(([cp, name]) => [parseInt(cp), nameToIdx[name] || 0])
+    .sort((a,b) => a[0]-b[0]);
+
+  // Simple format 4
+  const segCount = entries.length + 1;
+  const segCountX2 = segCount * 2;
+  const searchRange = Math.pow(2, Math.floor(Math.log2(segCount))) * 2;
+  const entrySelector = Math.floor(Math.log2(segCount));
+  const rangeShift = segCountX2 - searchRange;
+
+  const b = new BufWriter();
+  // cmap header
+  b.u16(0); // version
+  b.u16(1); // numTables
+  b.u16(3); // platformID (Windows)
+  b.u16(1); // encodingID (Unicode BMP)
+  b.u32(12); // offset to subtable
+
+  // format 4 subtable
+  const startPos = b.length();
+  b.u16(4); // format
+  const lenPos = b.buf.length; b.u16(0); // length placeholder
+  b.u16(0); // language
+  b.u16(segCountX2);
+  b.u16(searchRange);
+  b.u16(entrySelector);
+  b.u16(rangeShift);
+
+  // endCodes
+  entries.forEach(([cp]) => b.u16(cp));
+  b.u16(0xFFFF);
+  b.u16(0); // reservedPad
+
+  // startCodes
+  entries.forEach(([cp]) => b.u16(cp));
+  b.u16(0xFFFF);
+
+  // idDelta
+  entries.forEach(([cp, idx]) => b.s16(idx - cp));
+  b.s16(1);
+
+  // idRangeOffset (all 0)
+  entries.forEach(() => b.u16(0));
+  b.u16(0);
+
+  // fix length
+  const totalLen = b.length() - startPos;
+  b.buf[lenPos] = (totalLen >> 8) & 0xFF;
+  b.buf[lenPos+1] = totalLen & 0xFF;
+
+  return b.bytes();
+}
+
+function buildGlyf(glyphNames, glyphs, advances) {
+  const nameToIdx = {};
+  glyphNames.forEach((n,i) => { nameToIdx[n] = i; });
+
+  const glyfParts = [];
+  const offsets = [0];
+
+  glyphNames.forEach(name => {
+    if (name === '.notdef' || name === 'space' || !glyphs[name]) {
+      glyfParts.push(new Uint8Array(0));
+      offsets.push(offsets[offsets.length-1]);
+      return;
+    }
+
+    const g = glyphs[name];
+    const pts = g.pts;
+    if (!pts || pts.length < 3) {
+      glyfParts.push(new Uint8Array(0));
+      offsets.push(offsets[offsets.length-1]);
+      return;
+    }
+
+    // Build a simple glyph with one contour (convex hull of points)
+    const hull = convexHull(pts);
+    if (hull.length < 3) {
+      glyfParts.push(new Uint8Array(0));
+      offsets.push(offsets[offsets.length-1]);
+      return;
+    }
+
+    const b = new BufWriter();
+    b.s16(1); // numberOfContours
+    // bounding box
+    const xs = hull.map(p=>p[0]), ys = hull.map(p=>p[1]);
+    b.s16(Math.min(...xs)); b.s16(Math.min(...ys));
+    b.s16(Math.max(...xs)); b.s16(Math.max(...ys));
+    // endPtsOfContours
+    b.u16(hull.length - 1);
+    // instructionLength
+    b.u16(0);
+    // flags (all on-curve)
+    hull.forEach(() => b.u8(1));
+    // coordinates (absolute for first, delta after)
+    let lx = 0, ly = 0;
+    hull.forEach(([x,y]) => {
+      const dx = x - lx, dy = y - ly;
+      b.s16(dx); lx = x;
+    });
+    hull.forEach(([x,y]) => {
+      const dy = y - ly;
+      b.s16(dy); ly = y;
+    });
+    b.pad4();
+
+    const bytes = b.bytes();
+    glyfParts.push(bytes);
+    offsets.push(offsets[offsets.length-1] + bytes.length);
+  });
+
+  // Build glyf table
+  const totalSize = offsets[offsets.length-1];
+  const glyfBuf = new Uint8Array(totalSize);
+  let pos = 0;
+  glyfParts.forEach(part => { glyfBuf.set(part, pos); pos += part.length; });
+
+  // Build loca table (short format: offsets/2)
+  const lb = new BufWriter();
+  offsets.forEach(o => lb.u16(o / 2));
+
+  return { glyf: glyfBuf, loca: lb.bytes() };
+}
+
+function convexHull(pts) {
+  if (pts.length <= 3) return pts;
+  // Sort by x then y
+  const sorted = [...pts].sort((a,b) => a[0]-b[0] || a[1]-b[1]);
+  const cross = (o,a,b) => (a[0]-o[0])*(b[1]-o[1]) - (a[1]-o[1])*(b[0]-o[0]);
+
+  const lower = [];
+  for (const p of sorted) {
+    while (lower.length >= 2 && cross(lower[lower.length-2], lower[lower.length-1], p) <= 0)
+      lower.pop();
+    lower.push(p);
+  }
+  const upper = [];
+  for (let i = sorted.length-1; i >= 0; i--) {
+    const p = sorted[i];
+    while (upper.length >= 2 && cross(upper[upper.length-2], upper[upper.length-1], p) <= 0)
+      upper.pop();
+    upper.push(p);
+  }
+  upper.pop(); lower.pop();
+  const hull = lower.concat(upper);
+  // Limit to reasonable number of points
+  if (hull.length > 40) {
+    const step = Math.ceil(hull.length / 40);
+    return hull.filter((_,i) => i % step === 0);
+  }
+  return hull;
+}
+
+function buildName() {
+  const strings = [
+    { platformID:3, encodingID:1, languageID:0x0409, nameID:1, value:'Crousian' },
+    { platformID:3, encodingID:1, languageID:0x0409, nameID:2, value:'Regular' },
+    { platformID:3, encodingID:1, languageID:0x0409, nameID:4, value:'Crousian Regular' },
+    { platformID:3, encodingID:1, languageID:0x0409, nameID:6, value:'Crousian-Regular' },
+  ];
+
+  const stringData = new BufWriter();
+  const records = [];
+  strings.forEach(s => {
+    const start = stringData.length();
+    stringData.u16str(s.value);
+    records.push({ ...s, offset: start, length: stringData.length() - start });
+  });
+
+  const b = new BufWriter();
+  b.u16(0); // format
+  b.u16(records.length);
+  const storageOffset = 6 + records.length * 12;
+  b.u16(storageOffset);
+  records.forEach(r => {
+    b.u16(r.platformID); b.u16(r.encodingID); b.u16(r.languageID);
+    b.u16(r.nameID); b.u16(r.length); b.u16(r.offset);
+  });
+  // Append string data
+  stringData.bytes().forEach(byte => b.u8(byte));
+  return b.bytes();
+}
+
+function buildPost() {
+  const b = new BufWriter();
+  b.fixed(3.0); // version 3 (no glyph names)
+  b.fixed(0);   // italicAngle
+  b.s16(-100);  // underlinePosition
+  b.s16(50);    // underlineThickness
+  b.u32(0);     // isFixedPitch
+  b.u32(0); b.u32(0); b.u32(0); b.u32(0); // mem
+  return b.bytes();
+}
+
+function assembleTTF(tables) {
+  const TAG_ORDER = ['head','hhea','maxp','OS/2','hmtx','cmap','loca','glyf','name','post'];
+  const presentTables = TAG_ORDER.filter(t => tables[t]);
+
+  const numTables = presentTables.length;
+  const searchRange = Math.pow(2, Math.floor(Math.log2(numTables))) * 16;
+  const entrySelector = Math.floor(Math.log2(numTables));
+  const rangeShift = numTables * 16 - searchRange;
+
+  // Calculate offsets
+  const headerSize = 12 + numTables * 16;
+  let currentOffset = headerSize;
+  const tableOffsets = {};
+  const tableLengths = {};
+
+  presentTables.forEach(tag => {
+    tableOffsets[tag] = currentOffset;
+    tableLengths[tag] = tables[tag].length;
+    currentOffset += tables[tag].length;
+    // Pad to 4 bytes
+    while (currentOffset % 4) currentOffset++;
+  });
+
+  const totalSize = currentOffset;
+  const result = new Uint8Array(totalSize);
+  const view = new DataView(result.buffer);
+
+  // Offset table
+  view.setUint32(0, 0x00010000); // sfVersion (TrueType)
+  view.setUint16(4, numTables);
+  view.setUint16(6, searchRange);
+  view.setUint16(8, entrySelector);
+  view.setUint16(10, rangeShift);
+
+  // Table records
+  let recOffset = 12;
+  presentTables.forEach(tag => {
+    const bytes = tables[tag];
+    // checksum
+    let sum = 0;
+    for (let i = 0; i < bytes.length; i += 4) {
+      let val = 0;
+      for (let j = 0; j < 4; j++) val = (val << 8) | (bytes[i+j] || 0);
+      sum = (sum + val) >>> 0;
+    }
+    // Write tag
+    for (let i = 0; i < 4; i++) result[recOffset + i] = tag.charCodeAt(i) || 0x20;
+    view.setUint32(recOffset + 4, sum);
+    view.setUint32(recOffset + 8, tableOffsets[tag]);
+    view.setUint32(recOffset + 12, tableLengths[tag]);
+    recOffset += 16;
+  });
+
+  // Copy table data
+  presentTables.forEach(tag => {
+    result.set(tables[tag], tableOffsets[tag]);
+  });
+
+  // Fix head checkSumAdjustment
+  let wholeSum = 0;
+  for (let i = 0; i < result.length; i += 4) {
+    let val = 0;
+    for (let j = 0; j < 4; j++) val = (val << 8) | (result[i+j] || 0);
+    wholeSum = (wholeSum + val) >>> 0;
+  }
+  const adj = (0xB1B0AFBA - wholeSum) >>> 0;
+  const headOff = tableOffsets['head'] + 8;
+  view.setUint32(headOff, adj);
+
+  return result;
+}
+
+// ── Reset ─────────────────────────────────────────────────────────────────────
+document.getElementById('btn-reset').addEventListener('click', () => {
+  if (!confirm('Reset all collected glyphs and start over?')) return;
+  glyphData = {};
+  currentIdx = 0;
+  document.querySelectorAll('.glyph-cell').forEach((c,i) => {
+    c.classList.remove('done');
+    c.classList.toggle('active', i === 0);
+  });
+  updateProgress();
+  clearPreview();
+  document.getElementById('export-section').classList.remove('visible');
+  updatePrompt();
+});
+</script>
+</body>
+</html>
