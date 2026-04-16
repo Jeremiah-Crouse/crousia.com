@@ -74,14 +74,27 @@ span[style*="font-weight: 700"] {
 }
 
 /* Color text based on inline style from AuthorshipColorPlugin */
-.editor-input span[style*="color: #FFD700"],
-.text-gold {
+/* Purple - spans inside headings with purple color (rgb format) */
+.editor-input h1 span[style*="rgb(160, 32, 240)"],
+.editor-input h2 span[style*="rgb(160, 32, 240)"],
+.editor-input h3 span[style*="rgb(160, 32, 240)"] {
+  color: #A020F0 !important;
+}
+
+/* Gold - spans inside headings with gold color (rgb format) */
+.editor-input h1 span[style*="rgb(255, 215, 0)"],
+.editor-input h2 span[style*="rgb(255, 215, 0)"],
+.editor-input h3 span[style*="rgb(255, 215, 0)"] {
   color: var(--gold) !important;
 }
 
-.editor-input span[style*="color: #A020F0"],
-.text-purple {
+/* Regular text spans */
+.editor-input span[style*="rgb(160, 32, 240)"] {
   color: #A020F0 !important;
+}
+
+.editor-input span[style*="rgb(255, 215, 0)"] {
+  color: var(--gold) !important;
 }
 
 /* Remote User Cursors */

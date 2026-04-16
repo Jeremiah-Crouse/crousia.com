@@ -17,7 +17,7 @@
 :root {
     --bg-primary: #1a1a2e;
     --bg-secondary: #0f0f1a;
-    --gold: #d4af37;
+    --gold: rgb(255, 241, 184);
     --text-primary: #f5e6c8;
     --text-dim: #a89880;
 }
@@ -219,7 +219,7 @@ body {
     text-align: center;
 }
 
-h1 { color: var(--gold); margin-bottom: 0.5rem; }
+/* h1 styles moved to Editor.css */
 
 /* Editor Shell */
 .editor-container {
@@ -244,8 +244,8 @@ h1 { color: var(--gold); margin-bottom: 0.5rem; }
 }
 
 .text-gold {
-  color: #FFD700 !important;
-  text-shadow: 0 0 8px rgba(255, 215, 0, 0.3);
+  color: rgb(255, 241, 184) !important;
+  text-shadow: 0 0 8px rgba(201, 162, 39, 0.3);
 }
 
 ::selection {
@@ -279,8 +279,8 @@ h1 { color: var(--gold); margin-bottom: 0.5rem; }
   display: block;
   padding: 16px 32px;
   background: rgba(15, 15, 26, 0.6);
-  border: 1px solid #d4af37; /* Gold */
-  color: #f5e6c8;
+  border: 1px solid var(--gold); /* Gold */
+  color: var(--text-primary);
   text-decoration: none;
   text-align: center;
   transition: all 0.25s ease;
@@ -294,7 +294,6 @@ h1 { color: var(--gold); margin-bottom: 0.5rem; }
 
 /* Inject these into your App.css to style the marked output */
 .doc-content h1, .doc-content h2, .doc-content h3 {
-    color: #d4af37 !important; /* Gold */
     text-align: center;
     margin: 1rem 0;
 }
