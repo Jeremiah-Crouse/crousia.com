@@ -522,8 +522,8 @@
 
     <div class="threshold-control">
       <label>Ink threshold</label>
-      <input type="range" id="threshold" min="30" max="220" value="120">
-      <span id="threshold-val">120</span>
+      <input type="range" id="threshold" min="30" max="220" value="90">
+      <span id="threshold-val">90</span>
     </div>
 
     <div class="preview-area" id="preview-area">
@@ -633,7 +633,7 @@ const LETTER_NAMES = {
 let glyphData = {}; // letter -> {imageData, width, height, advance}
 let currentIdx = 0;
 let currentImageData = null;
-let threshold = 120;
+let threshold = 90;
 
 // ── Build alphabet grid ───────────────────────────────────────────────────────
 const grid = document.getElementById('alphabet-grid');
@@ -700,24 +700,38 @@ uploadZone.addEventListener('drop', e => {
   if (file) { const r = new FileReader(); r.onload = ev => loadImage(ev.target.result); r.readAsDataURL(file); }
 });
 
+const MAX_SIZE = 400;
+
 function loadImage(src) {
   const img = new Image();
   img.onload = () => {
-    // Draw original preview (scaled)
-    const origCanvas = document.getElementById('canvas-original');
-    const oc = origCanvas.getContext('2d');
-    const size = 160;
-    origCanvas.width = size; origCanvas.height = size;
-    const scale = Math.min(size/img.width, size/img.height);
-    const sw = img.width * scale, sh = img.height * scale;
-    oc.fillStyle = '#000';
-    oc.fillRect(0, 0, size, size);
-    oc.drawImage(img, (size-sw)/2, (size-sh)/2, sw, sh);
+    const w = img.width, h = img.height;
+    const scale = Math.min(MAX_SIZE / w, MAX_SIZE / h, 1);
+    const nw = Math.round(w * scale), nh = Math.round(h * scale);
 
-    currentImageData = img;
-    processGlyph();
-    document.getElementById('preview-area').classList.add('visible');
-    document.getElementById('upload-zone').style.display = 'none';
+    const temp = document.createElement('canvas');
+    temp.width = nw; temp.height = nh;
+    const tctx = temp.getContext('2d');
+    tctx.drawImage(img, 0, 0, nw, nh);
+
+    const scaled = new Image();
+    scaled.onload = () => {
+      const origCanvas = document.getElementById('canvas-original');
+      const oc = origCanvas.getContext('2d');
+      const size = 160;
+      origCanvas.width = size; origCanvas.height = size;
+      const pscale = Math.min(size/scaled.width, size/scaled.height);
+      const sw = scaled.width * pscale, sh = scaled.height * pscale;
+      oc.fillStyle = '#000';
+      oc.fillRect(0, 0, size, size);
+      oc.drawImage(scaled, (size-sw)/2, (size-sh)/2, sw, sh);
+
+      currentImageData = scaled;
+      processGlyph();
+      document.getElementById('preview-area').classList.add('visible');
+      document.getElementById('upload-zone').style.display = 'none';
+    };
+    scaled.src = temp.toDataURL('image/png');
   };
   img.src = src;
 }
@@ -730,11 +744,13 @@ document.getElementById('threshold').addEventListener('input', function() {
 });
 
 // ── Process glyph ─────────────────────────────────────────────────────────────
+const CONTRAST = 1.8;
+const CONTRAST_BIAS = 0.5 * (1 - CONTRAST);
+
 function processGlyph() {
   if (!currentImageData) return;
   const img = currentImageData;
 
-  // Render to offscreen canvas
   const offscreen = document.createElement('canvas');
   offscreen.width = img.width;
   offscreen.height = img.height;
@@ -744,10 +760,22 @@ function processGlyph() {
   const idata = octx.getImageData(0, 0, img.width, img.height);
   const d = idata.data;
 
-  // Grayscale + threshold
-  const mask = new Uint8Array(img.width * img.height);
   for (let i = 0; i < d.length; i += 4) {
-    const gray = 0.299*d[i] + 0.587*d[i+1] + 0.114*d[i+2];
+    for (let c = 0; c < 3; c++) {
+      let v = d[i + c] / 255;
+      v = Math.max(0, Math.min(1, v * CONTRAST + CONTRAST_BIAS));
+      d[i + c] = Math.round(v * 255);
+    }
+  }
+
+  octx.putImageData(idata, 0, 0);
+
+  const idata2 = octx.getImageData(0, 0, img.width, img.height);
+  const d2 = idata2.data;
+
+  const mask = new Uint8Array(img.width * img.height);
+  for (let i = 0; i < d2.length; i += 4) {
+    const gray = 0.299*d2[i] + 0.587*d2[i+1] + 0.114*d2[i+2];
     mask[i/4] = gray < threshold ? 1 : 0;
   }
 
