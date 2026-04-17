@@ -94,14 +94,16 @@ function smoothstep(edge0, edge1, x) {
 }
 
 function renderGoldPixel(uvX, uvY, time, colors) {
-  // All time multipliers are integers so waves loop perfectly over 2π
-  const wave1 = Math.sin(uvX * 3 + time * 1);
-  const wave2 = Math.sin(uvY * 4 - time * 1);
-  const wave3 = Math.sin((uvX + uvY) * 2 + time * 1);
+  // Use toroidal coordinates for seamless tiling
+  // Frequencies are powers of 2 that divide 256 evenly
+  const wave1 = Math.sin(uvX * 8 * Math.PI + time * 1);
+  const wave2 = Math.sin(uvY * 8 * Math.PI - time * 1);
+  const wave3 = Math.sin((uvX + uvY) * 4 * Math.PI + time * 1);
+  const wave4 = Math.sin((uvX - uvY) * 4 * Math.PI - time * 1);
   
-  const blend = (wave1 * 0.35 + wave2 * 0.3 + wave3 * 0.35) * 0.5 + 0.5;
+  const blend = (wave1 * 0.2 + wave2 * 0.2 + wave3 * 0.3 + wave4 * 0.3) * 0.5 + 0.5;
   
-  // Static noise - doesn't animate, so no loop issues
+  // Static noise with periodic tiling
   const n = valueNoise(uvX * 8, uvY * 8);
   const blendedBlend = blend * 0.85 + n * 0.15;
   
@@ -112,11 +114,12 @@ function renderGoldPixel(uvX, uvY, time, colors) {
 }
 
 function renderEmeraldPixel(uvX, uvY, time, colors) {
-  const wave1 = Math.sin(uvX * 3 + time * 1);
-  const wave2 = Math.sin(uvY * 4 - time * 1);
-  const wave3 = Math.sin((uvX + uvY) * 2 + time * 1);
+  const wave1 = Math.sin(uvX * 8 * Math.PI + time * 1);
+  const wave2 = Math.sin(uvY * 8 * Math.PI - time * 1);
+  const wave3 = Math.sin((uvX + uvY) * 4 * Math.PI + time * 1);
+  const wave4 = Math.sin((uvX - uvY) * 4 * Math.PI - time * 1);
   
-  const blend = (wave1 * 0.35 + wave2 * 0.3 + wave3 * 0.35) * 0.5 + 0.5;
+  const blend = (wave1 * 0.2 + wave2 * 0.2 + wave3 * 0.3 + wave4 * 0.3) * 0.5 + 0.5;
   
   const n = valueNoise(uvX * 8, uvY * 8);
   const blendedBlend = blend * 0.85 + n * 0.15;
@@ -128,11 +131,12 @@ function renderEmeraldPixel(uvX, uvY, time, colors) {
 }
 
 function renderPurplePixel(uvX, uvY, time, colors) {
-  const wave1 = Math.sin(uvX * 3 + time * 1);
-  const wave2 = Math.sin(uvY * 4 - time * 1);
-  const wave3 = Math.sin((uvX + uvY) * 2 + time * 1);
+  const wave1 = Math.sin(uvX * 8 * Math.PI + time * 1);
+  const wave2 = Math.sin(uvY * 8 * Math.PI - time * 1);
+  const wave3 = Math.sin((uvX + uvY) * 4 * Math.PI + time * 1);
+  const wave4 = Math.sin((uvX - uvY) * 4 * Math.PI - time * 1);
   
-  const blend = (wave1 * 0.35 + wave2 * 0.3 + wave3 * 0.35) * 0.5 + 0.5;
+  const blend = (wave1 * 0.2 + wave2 * 0.2 + wave3 * 0.3 + wave4 * 0.3) * 0.5 + 0.5;
   
   const n = valueNoise(uvX * 8, uvY * 8);
   const blendedBlend = blend * 0.85 + n * 0.15;
