@@ -103,7 +103,7 @@ export default function TexturedCrousianText({
           fontWeight: 600,
           fontSize,
           lineHeight: 0.9,
-          letterSpacing: nav || logo ? '0.02em' : '0.03em',
+          letterSpacing: nav || logo ? '-0.05em' : '0.03em',
           filter: 'drop-shadow(0 0 4px rgba(0, 0, 0, 0.7)) drop-shadow(0 0 10px rgba(0, 0, 0, 0.35))',
         }}
       >
