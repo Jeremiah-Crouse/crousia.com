@@ -94,32 +94,51 @@ function smoothstep(edge0, edge1, x) {
 }
 
 function renderGoldPixel(uvX, uvY, time, colors) {
-  // Flip vertically by using (1 - uvY)
-  const wave = Math.sin((uvX + (1 - uvY)) * 2 * Math.PI + time);
-  const blend = wave * 0.5 + 0.5;
-
-  let color = mixColor(colors[0], colors[1], blend);
-  color = mixColor(color, colors[2], Math.pow(blend, 2));
+  // All time multipliers are integers so waves loop perfectly over 2π
+  const wave1 = Math.sin(uvX * 3 + time * 1);
+  const wave2 = Math.sin(uvY * 4 - time * 1);
+  const wave3 = Math.sin((uvX + uvY) * 2 + time * 1);
+  
+  const blend = (wave1 * 0.35 + wave2 * 0.3 + wave3 * 0.35) * 0.5 + 0.5;
+  
+  // Static noise - doesn't animate, so no loop issues
+  const n = valueNoise(uvX * 8, uvY * 8);
+  const blendedBlend = blend * 0.85 + n * 0.15;
+  
+  let color = mixColor(colors[0], colors[1], blendedBlend);
+  color = mixColor(color, colors[2], Math.pow(blendedBlend, 2));
 
   return gamma(color, 0.85);
 }
 
 function renderEmeraldPixel(uvX, uvY, time, colors) {
-  const wave = Math.sin((uvX + (1 - uvY)) * 2 * Math.PI + time);
-  const blend = wave * 0.5 + 0.5;
+  const wave1 = Math.sin(uvX * 3 + time * 1);
+  const wave2 = Math.sin(uvY * 4 - time * 1);
+  const wave3 = Math.sin((uvX + uvY) * 2 + time * 1);
+  
+  const blend = (wave1 * 0.35 + wave2 * 0.3 + wave3 * 0.35) * 0.5 + 0.5;
+  
+  const n = valueNoise(uvX * 8, uvY * 8);
+  const blendedBlend = blend * 0.85 + n * 0.15;
 
-  let color = mixColor(colors[0], colors[1], blend);
-  color = mixColor(color, colors[2], Math.pow(blend, 2));
+  let color = mixColor(colors[0], colors[1], blendedBlend);
+  color = mixColor(color, colors[2], Math.pow(blendedBlend, 2));
 
   return gamma(color, 0.8);
 }
 
 function renderPurplePixel(uvX, uvY, time, colors) {
-  const wave = Math.sin((uvX + (1 - uvY)) * 2 * Math.PI + time);
-  const blend = wave * 0.5 + 0.5;
+  const wave1 = Math.sin(uvX * 3 + time * 1);
+  const wave2 = Math.sin(uvY * 4 - time * 1);
+  const wave3 = Math.sin((uvX + uvY) * 2 + time * 1);
+  
+  const blend = (wave1 * 0.35 + wave2 * 0.3 + wave3 * 0.35) * 0.5 + 0.5;
+  
+  const n = valueNoise(uvX * 8, uvY * 8);
+  const blendedBlend = blend * 0.85 + n * 0.15;
 
-  let color = mixColor(colors[0], colors[1], blend);
-  color = mixColor(color, colors[2], Math.pow(blend, 2));
+  let color = mixColor(colors[0], colors[1], blendedBlend);
+  color = mixColor(color, colors[2], Math.pow(blendedBlend, 2));
 
   return gamma(color, 0.82);
 }
