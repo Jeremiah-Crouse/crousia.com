@@ -7,7 +7,7 @@ const TEXTURE_MAP = {
   purple: '/textures/purple.gif',
 };
 
-const SIZE = 256;
+const TEXTURE_SIZE = 26;
 const FRAMES = 24;
 
 export class ImageNode extends DecoratorNode {
@@ -136,8 +136,8 @@ function ImageWithTexture({ src, alt, texture, offset, isNote }) {
           right: 0,
           bottom: 0,
           backgroundImage: `url(${texture})`,
-          backgroundSize: `${SIZE * FRAMES}px ${SIZE}px`,
-          backgroundPosition: `-${offset * SIZE}px 0`,
+          backgroundSize: `${TEXTURE_SIZE * FRAMES}px ${TEXTURE_SIZE}px`,
+          backgroundPosition: `-${offset * TEXTURE_SIZE}px 0`,
           animation: `frame-anim ${2.88}s steps(${FRAMES}) infinite`,
           WebkitMaskImage: `url(${src})`,
           WebkitMaskSize: 'contain',

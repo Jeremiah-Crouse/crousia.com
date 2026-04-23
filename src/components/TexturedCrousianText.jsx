@@ -6,7 +6,8 @@ const TEXTURE_MAP = {
   purple: '/textures/purple.gif',
 };
 
-const SIZE = 256;
+const TEXTURE_SIZE = 26;  // tile size for notes
+const SIZE = 256;  // full size for letters
 const FRAMES = 24;
 
 function toCssSize(value) {
@@ -78,7 +79,7 @@ export default function TexturedCrousianText({
         {`
           @keyframes frame-anim {
              from { background-position: 0px 0; }
-             to { background-position: -${SIZE * FRAMES}px 0; }
+             to { background-position: -${TEXTURE_SIZE * FRAMES}px 0; }
           }
         `}
       </style>
@@ -125,9 +126,9 @@ export default function TexturedCrousianText({
               style={{
                 display: 'inline-block',
                 backgroundImage: `url(${texture})`,
-                backgroundRepeat: 'no-repeat',
-                backgroundSize: `${SIZE * FRAMES}px ${SIZE}px`,
-                backgroundPosition: `-${offsetFrame * SIZE}px 0`,
+                backgroundRepeat: 'repeat',
+backgroundSize: `${TEXTURE_SIZE * FRAMES}px ${TEXTURE_SIZE}px`,
+                 backgroundPosition: `-${offsetFrame * TEXTURE_SIZE}px 0`,
                 animation: `frame-anim ${1.44}s steps(${FRAMES}) infinite`,
                 animationDelay: `${delay}s`,
                 WebkitBackgroundClip: 'text',

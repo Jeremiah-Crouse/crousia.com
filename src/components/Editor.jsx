@@ -7,7 +7,7 @@ import { ContentEditable } from "@lexical/react/LexicalContentEditable";
 import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
 import { CollaborationPlugin } from "@lexical/react/LexicalCollaborationPlugin";
 import { MarkdownShortcutPlugin } from "@lexical/react/LexicalMarkdownShortcutPlugin";
-import { TRANSFORMERS } from "@lexical/markdown";
+import { TRANSFORMERS, ELEMENT_TRANSFORMERS, TEXT_MATCH_TRANSFORMERS, TEXT_FORMAT_TRANSFORMERS } from "@lexical/markdown";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import LexicalErrorBoundary from "@lexical/react/LexicalErrorBoundary";
 import { HeadingNode, QuoteNode } from "@lexical/rich-text";
@@ -27,14 +27,51 @@ import { UserContext } from "../context/UserContext";
 import {
   $getSelection,
   $isRangeSelection,
+  $createTextNode,
+  $createParagraphNode,
+  $getRoot,
   ParagraphNode,
   TextNode,
 } from "lexical";
 
+import { HorizontalRuleNode, $createHorizontalRuleNode, $isHorizontalRuleNode } from "@lexical/react/LexicalHorizontalRuleNode";
+
 const USER_COLORS = {
-  "King Jeremiah": "color: #FFD700",
+  "King Jeremiah": "color: var(--gold)",
   "Queen Lauren": "color: #A020F0",
 };
+
+const HORIZONTAL_RULE_TRANSFORMER = {
+  dependencies: [HorizontalRuleNode],
+  export: (node) => {
+    if (!$isHorizontalRuleNode(node)) return null;
+    return "---";
+  },
+  regExp: /^(---)\s?$/,
+  replace: (parentNode, _1, _2, isImport) => {
+    const hr = $createHorizontalRuleNode();
+    if (isImport || parentNode.getNextSibling() != null) {
+      parentNode.replace(hr);
+    } else {
+      parentNode.insertBefore(hr);
+    }
+    hr.selectNext();
+  },
+  type: "element",
+};
+
+const EM_DASH_TRANSFORMER = {
+  dependencies: [],
+  export: () => null,
+  regExp: /-- $/,
+  replace: (textNode, match) => {
+    textNode.setTextContent("\u2014");
+  },
+  trigger: ' ',
+  type: "text-match",
+};
+
+const ALL_TRANSFORMERS = [HORIZONTAL_RULE_TRANSFORMER, ...ELEMENT_TRANSFORMERS, ...TEXT_FORMAT_TRANSFORMERS, ...TEXT_MATCH_TRANSFORMERS, EM_DASH_TRANSFORMER];
 
 // Sets the typing color before each keystroke — does NOT touch existing nodes,
 // only affects characters about to be inserted.
@@ -42,7 +79,7 @@ import { $patchStyleText } from "@lexical/selection";
 
 function AuthorColorPlugin({ username }) {
   const [editor] = useLexicalComposerContext();
-  const color = USER_COLORS[username];
+  const color = USER_COLORS[username] || USER_COLORS["King Jeremiah"];
 
   useEffect(() => {
     if (!color) return;
@@ -85,7 +122,42 @@ function AutoSavePlugin() {
   return null;
 }
 
-export default function Editor() {
+function PageTracker({ onH2Found }) {
+  const [editor] = useLexicalComposerContext();
+
+  useEffect(() => {
+    if (!onH2Found || !editor) return;
+
+    const extractHeadings = () => {
+      editor.getEditorState().read(() => {
+        const root = $getRoot();
+        const childCount = root.getChildrenSize();
+        const h2s = [];
+        
+        for (let i = 0; i < childCount; i++) {
+          const child = root.getChildAtIndex(i);
+          if (!child) continue;
+          
+          if (child.getType?.() === 'heading' && child.getTag?.() === 'h2') {
+            const text = child.getFirstChild?.()?.getTextContent?.() || '';
+            if (text) h2s.push(text.substring(0, 30));
+          }
+        }
+        
+        onH2Found(h2s);
+      });
+    };
+
+    extractHeadings();
+
+    const remove = editor.registerUpdateListener(extractHeadings);
+    return remove;
+  }, [editor, onH2Found]);
+
+  return null;
+}
+
+export default function Editor({ onH2Found }) {
   const { name: username } = useContext(UserContext) || {};
   const readonly = !isAdmin();
 
@@ -111,6 +183,7 @@ export default function Editor() {
       ListItemNode,
       CodeNode,
       LinkNode,
+      HorizontalRuleNode,
       ImageNode,
     ],
     theme: {
@@ -144,10 +217,11 @@ export default function Editor() {
           placeholder={<div>Start writing...</div>}
           ErrorBoundary={LexicalErrorBoundary}
         />
+        <PageTracker onH2Found={onH2Found} />
         <HistoryPlugin />
         <AutoSavePlugin />
         <ImagePlugin isAdmin={!readonly} username={username} />
-        <MarkdownShortcutPlugin transformers={TRANSFORMERS} />
+        <MarkdownShortcutPlugin transformers={ALL_TRANSFORMERS} />
       </div>
     </LexicalComposer>
   );

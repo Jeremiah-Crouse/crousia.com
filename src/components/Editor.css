@@ -31,6 +31,7 @@ span[style*="font-style: italic"],
 i, em {
   font-style: italic !important;
   font-family: 'Cormorant Garamond', Georgia, serif !important;
+  color: inherit;
 }
 
 .editor-input b,
@@ -39,6 +40,7 @@ i, em {
 .editor-input [style*="font-weight: 700"],
 span[style*="font-weight: 700"] {
   font-weight: 700 !important;
+  color: inherit;
 }
 
 .editor-placeholder {
@@ -53,11 +55,21 @@ span[style*="font-weight: 700"] {
 }
 
 /* Markdown Rendering Styles */
-.editor-bold, .text-gold.editor-bold, .text-purple.editor-bold { font-weight: 700 !important; }
-.editor-italic, .text-gold.editor-italic, .text-purple.editor-italic { font-style: italic !important; }
+.editor-bold, .text-gold.editor-bold, .text-purple.editor-bold { font-weight: 700 !important; color: inherit; }
+.editor-italic, .text-gold.editor-italic, .text-purple.editor-italic { font-style: italic !important; color: inherit; }
 .editor-strikethrough, .text-gold.editor-strikethrough, .text-purple.editor-strikethrough { text-decoration: line-through; }
 .editor-code, .text-gold.editor-code, .text-purple.editor-code { font-family: monospace; background: rgba(255,255,255,0.1); padding: 2px 4px; border-radius: 3px; }
-.editor-h1 { font-size: 24px; font-weight: 700; margin: 10px 0; }
+
+/* Heading centering */
+h1, .editor-h1, [data-h1] { font-size: 24px; font-weight: 700; margin: 10px 0; text-align: center !important; }
+h2, .editor-h2, [data-h2] { font-size: 20px; font-weight: 700; margin: 8px 0; text-align: center !important; }
+h3, .editor-h3, [data-h3] { font-size: 18px; font-weight: 700; margin: 6px 0; text-align: center !important; }
+
+.editor-input {
+  text-align: justify;
+  max-height: 70vh;
+  overflow-y: auto;
+}
 .editor-ul { padding-left: 20px; list-style-type: disc; }
 
 /* Fix for bold+italic */
@@ -161,5 +173,63 @@ span[style*="font-weight: 700"] {
   max-width: 100%;
   height: auto;
   display: block;
+}
+
+/* Page system - sticky tabs */
+.page-tabs-sticky {
+  display: flex;
+  gap: 4px;
+  padding: 10px;
+  background: rgba(15, 15, 26, 0.9);
+  border-bottom: 1px solid var(--gold);
+  overflow-x: auto;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.page-tab {
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid var(--gold);
+  border-radius: 3px;
+  color: var(--gold);
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 14px;
+  cursor: pointer;
+  opacity: 0.6;
+}
+
+.page-tab:hover {
+  opacity: 0.8;
+}
+
+.page-tab.active {
+  opacity: 1;
+}
+
+.page-tab:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+/* Page view - fixed height container showing only one page */
+.editor-page-container {
+  position: relative;
+  min-height: 70vh;
+}
+
+.editor-page-content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.editor-page-content.active {
+  opacity: 1;
+  pointer-events: auto;
 }
 

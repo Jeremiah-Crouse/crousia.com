@@ -10,6 +10,7 @@ import { WebsocketProvider } from "y-websocket";
 import WebSocket from "ws";
 import multer from "multer";
 import { Jimp } from "jimp";
+import Stripe from "stripe";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -35,6 +36,48 @@ const UPLOADS_DIR = path.join(__dirname, 'uploads');
 
 // Multer setup using disk storage
 const upload = multer({ dest: UPLOADS_DIR });
+
+// Users file path
+const USERS_FILE = path.join(__dirname, 'users.csv');
+
+// Stripe setup
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
+
+// Load users from CSV file
+function loadUsers() {
+  const users = {};
+  try {
+    if (fs.existsSync(USERS_FILE)) {
+      const content = fs.readFileSync(USERS_FILE, 'utf-8');
+      const lines = content.trim().split('\n');
+      for (const line of lines) {
+        const [name, password, active] = line.split(',');
+        if (name && password) {
+          users[name.trim()] = { 
+            password: password.trim(), 
+            active: active?.trim() === 'true' 
+          };
+        }
+      }
+      console.log(`👥 Loaded ${Object.keys(users).length} users`);
+    }
+  } catch (err) {
+    console.log('Failed to load users:', err.message);
+  }
+  return users;
+}
+
+// Reload users on demand
+function getUsers() {
+  return loadUsers();
+}
+
+// Simple token store (in-memory for now)
+const authTokens = new Map();
+
+function generateToken() {
+  return Math.random().toString(36).substring(2) + Date.now().toString(36);
+}
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models";
 const GEMINI_VISION_MODEL = process.env.GEMINI_VISION_MODEL || "gemini-2.0-flash-lite";
 
@@ -184,8 +227,229 @@ const provider = new WebsocketProvider(
 
 app.use(express.json());
 
+// Authentication: check if name exists
+app.post('/api/auth/check-name', (req, res) => {
+  const { name } = req.body;
+  console.log(`🔍 Checking name: ${name}`);
+  
+  if (!name) {
+    return res.status(400).json({ error: 'Name required' });
+  }
+  
+  const users = getUsers();
+  if (users[name] && users[name].active) {
+    return res.json({ valid: true });
+  }
+  
+  console.log(`❌ Name not found or inactive: ${name}`);
+  res.json({ valid: false, redirect: true });
+});
+
+// Authentication: validate password
+app.post('/api/auth/login', (req, res) => {
+  const { name, password } = req.body;
+  console.log(`🔐 Login attempt: ${name}`);
+  
+  if (!name || !password) {
+    return res.status(400).json({ error: 'Name and password required' });
+  }
+  
+  const users = getUsers();
+  if (users[name] && users[name].password === password && users[name].active) {
+    const token = generateToken();
+    authTokens.set(token, name);
+    console.log(`✅ Login success: ${name}`);
+    return res.json({ token, name, authorized: true });
+  }
+  
+  console.log(`❌ Login failed: ${name}`);
+  res.status(401).json({ error: 'Invalid credentials' });
+});
+
+app.post('/api/auth/logout', (req, res) => {
+  const token = req.body.token;
+  if (token && authTokens.has(token)) {
+    const name = authTokens.get(token);
+    authTokens.delete(token);
+    console.log(`👋 Logged out: ${name}`);
+  }
+  res.json({ ok: true });
+});
+
+// Pending signups storage (name -> { password, timestamp })
+const pendingSignups = new Map();
+
+// Test signup (skip payment)
+app.post('/api/auth/signup-test', (req, res) => {
+  const { name, password } = req.body;
+  console.log(`🧪 Test signup: ${name}`);
+  
+  if (!name || !password) {
+    return res.status(400).json({ error: 'Name and password required' });
+  }
+  
+  const users = getUsers();
+  if (users[name]) {
+    return res.status(400).json({ error: 'Name already exists' });
+  }
+  
+  try {
+    const fs = require('fs');
+    const userLine = `\n${name},${password},true`;
+    fs.appendFileSync(USERS_FILE, userLine);
+    console.log(`✅ Test user added: ${name}`);
+    res.json({ success: true, name });
+  } catch (err) {
+    console.error('Test signup failed:', err);
+    res.status(500).json({ error: 'Failed to create user' });
+  }
+});
+
+// Stripe checkout session
+app.post('/api/auth/signup', async (req, res) => {
+  const { name, password } = req.body;
+  console.log(`💳 Signup request: ${name}`);
+  
+  if (!name || !password) {
+    return res.status(400).json({ error: 'Name and password required' });
+  }
+  
+  const users = getUsers();
+  if (users[name]) {
+    return res.status(400).json({ error: 'Name already exists' });
+  }
+  
+  try {
+    // Store pending signup
+    pendingSignups.set(name, { password, timestamp: Date.now() });
+    
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      line_items: [{
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: 'Crousia Editing Access',
+            description: 'Monthly subscription for editing access'
+          },
+          unit_amount: 500, // $5.00
+          recurring: {
+            interval: 'month'
+          }
+        },
+        quantity: 1
+      }],
+      mode: 'subscription',
+      success_url: `${req.headers.origin}/?signup=success`,
+      cancel_url: `${req.headers.origin}/?signup=cancel`,
+      metadata: {
+        name
+      }
+    });
+    
+    res.json({ sessionId: session.id, url: session.url });
+  } catch (err) {
+    console.error('Stripe error:', err);
+    res.status(500).json({ error: 'Payment setup failed' });
+  }
+});
+
+// Stripe webhook
+app.post('/api/auth/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  const sig = req.headers['stripe-signature'];
+  
+  try {
+    const event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
+    
+    console.log(`📝 Stripe webhook: ${event.type}`);
+    
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object;
+      const customerId = session.customer;
+      const customerEmail = session.customer_email;
+      const metadata = session.metadata;
+      
+      // Check if this was a signup
+      for (const [name, pending] of pendingSignups) {
+        if (pending.password) {
+          // Add to users CSV as active
+          try {
+            const fs = require('fs');
+            const userLine = `\n${name},${pending.password},true`;
+            fs.appendFileSync(USERS_FILE, userLine);
+            console.log(`✅ Added new user: ${name}`);
+            pendingSignups.delete(name);
+          } catch (err) {
+            console.error('Failed to add user:', err);
+          }
+          break;
+        }
+      }
+    }
+    
+    if (event.type === 'invoice.payment_succeeded') {
+      console.log(`✅ Payment succeeded`);
+    }
+    
+    if (event.type === 'invoice.payment_failed') {
+      console.log(`❌ Payment failed`);
+    }
+    
+    res.json({ received: true });
+  } catch (err) {
+    console.error('Webhook error:', err);
+    res.status(400).send(`Webhook Error: ${err.message}`);
+  }
+});
+
+// Admin: reactivate user
+app.post('/api/auth/reactivate', (req, res) => {
+  const { name } = req.body;
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  
+  // Simple admin check - could be more secure
+  if (!name) {
+    return res.status(400).json({ error: 'Name required' });
+  }
+  
+  // Read and update CSV
+  try {
+    if (fs.existsSync(USERS_FILE)) {
+      let content = fs.readFileSync(USERS_FILE, 'utf-8');
+      const lines = content.trim().split('\n');
+      const newLines = lines.map(line => {
+        const [n, p, a] = line.split(',');
+        if (n?.trim() === name) {
+          return `${n.trim()},${p.trim()},true`;
+        }
+        return line;
+      });
+      fs.writeFileSync(USERS_FILE, newLines.join('\n'));
+      console.log(`✅ Reactivated: ${name}`);
+      return res.json({ success: true });
+    }
+  } catch (err) {
+    console.error('Reactivate error:', err);
+  }
+  res.status(500).json({ error: 'Failed to reactivate' });
+});
+
+// Verify token utility
+function isAuthenticated(req) {
+  const token = req.headers.authorization?.replace('Bearer ', '');
+  if (!token) return { authorized: false };
+  const name = authTokens.get(token);
+  return { authorized: !!name, name };
+}
+
 // API Routes
-app.post('/api/upload-note', upload.single('image'), async (req, res) => {
+app.post('/api/upload-note', (req, res, next) => {
+  const auth = isAuthenticated(req);
+  if (!auth.authorized) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+  next();
+}, upload.single('image'), async (req, res) => {
   console.log("📥 New upload request...");
   const tempPath = req.file?.path;
   

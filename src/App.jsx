@@ -9,10 +9,27 @@ const Home = lazy(() => import('./pages/Home'));
 const Log = lazy(() => import('./pages/Log'));
 const Links = lazy(() => import('./pages/Links'));
 const About = lazy(() => import('./pages/About'));
+const Signup = lazy(() => import('./pages/Signup'));
 
 export default function App() {
   const [view, setView] = useState('home');
   const [showSplash, setShowSplash] = useState(true);
+
+  // Handle direct URL access and signup params
+  React.useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const signup = params.get('signup');
+    
+    if (window.location.pathname === '/signup' || signup === 'success' || signup === 'cancel') {
+      setView('signup');
+      // Clear the query param after reading
+      if (signup) {
+        const url = new URL(window.location);
+        url.searchParams.delete('signup');
+        window.history.replaceState({}, '', url.pathname);
+      }
+    }
+  }, []);
 
   return (
     <>
@@ -28,6 +45,7 @@ export default function App() {
             {view === 'log' && <Log />}
             {view === 'links' && <Links />}
             {view === 'about' && <About />}
+            {view === 'signup' && <Signup />}
           </Suspense>
         </main>
       </div>

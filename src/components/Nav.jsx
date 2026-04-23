@@ -65,6 +65,11 @@ export default function Nav({ currentView, setView }) {
     { label: 'ABOUT', view: 'about' },
   ];
 
+  if (!isAdmin()) {
+    navItems.push({ label: 'SIGN IN', url: 'https://qwert.crousia.com' });
+    navItems.push({ label: 'SIGN UP', view: 'signup' });
+  }
+
   if (isMobile) {
     return (
       <nav className="nav nav-mobile">
@@ -85,13 +90,14 @@ export default function Nav({ currentView, setView }) {
           <span className="hamburger-line"></span>
           <span className="hamburger-line"></span>
         </button>
-        {menuOpen && (
+{menuOpen && (
           <div className="mobile-dropdown">
             {navItems.map((item) => (
               <a
-                key={item.view}
-                className={currentView === item.view ? 'active' : ''}
-                onClick={() => handleNavClick(item.view)}
+                key={item.view || item.url}
+                href={item.url || undefined}
+                className={item.view && currentView === item.view ? 'active' : ''}
+                onClick={() => { if (item.view) { setView(item.view); setMenuOpen(false); } }}
               >
                 <CrousianText
                   text={item.label}
@@ -101,7 +107,7 @@ export default function Nav({ currentView, setView }) {
               </a>
             ))}
             {isAdmin() && (
-              <a onClick={performLogout}>
+              <a onClick={() => { performLogout(); setMenuOpen(false); }}>
                 <CrousianText
                   text="LOGOUT"
                   nav
@@ -125,12 +131,13 @@ export default function Nav({ currentView, setView }) {
           style={{ height: '7rem' }} 
         />
       </div>
-      <div className="nav-links" ref={navLinksRef}>
+<div className="nav-links" ref={navLinksRef}>
         {navItems.map((item) => (
           <a 
-            key={item.view}
-            className={currentView === item.view ? 'active' : ''} 
-            onClick={() => setView(item.view)}
+            key={item.view || item.url}
+            href={item.url || undefined}
+            className={item.view && currentView === item.view ? 'active' : ''} 
+            onClick={() => { if (item.view) { setView(item.view); setMenuOpen(false); } }}
           >
             <CrousianText
               text={item.label}

@@ -91,8 +91,10 @@ export default function ImagePlugin({ isAdmin, username }) {
     formData.append('username', username);
 
     try {
+      const token = localStorage.getItem("crousia_token");
       const res = await fetch('/api/upload-note', {
         method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
         body: formData,
       });
       const data = await res.json();
