@@ -81,6 +81,18 @@ body {
     padding: 0;
 }
 
+.nav-links > a::after {
+    content: '•';
+    color: black;
+    margin: 0 0.5rem;
+    font-size: 1.2rem;
+}
+
+.nav-links > a:last-child::after {
+    content: '';
+    margin: 0;
+}
+
 .nav-links a.active { color: var(--gold); }
 
 /* Mobile Nav */

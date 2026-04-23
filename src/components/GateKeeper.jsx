@@ -19,6 +19,16 @@ export default function Gatekeeper({ children }) {
   }, [authorized, step]);
 
   const isPublicSite = window.location.hostname === "crousia.com";
+  const isLocalDev = window.location.hostname === "localhost" && window.location.port === "5173";
+
+  // Skip auth check entirely on local dev server
+  if (isLocalDev) {
+    return (
+      <UserContext.Provider value={{ name: 'King Jeremiah', handleLogout: () => {} }}>
+        {children}
+      </UserContext.Provider>
+    );
+  }
 
   const handleCheckName = async () => {
     setError('');
