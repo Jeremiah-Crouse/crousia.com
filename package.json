@@ -54,6 +54,7 @@
     "gifenc": "^1.0.3",
     "globals": "^16.5.0",
     "sharp": "^0.34.5",
+    "svg-to-pdfkit": "^0.1.8",
     "vite": "^8.0.0-beta.13"
   },
   "overrides": {
