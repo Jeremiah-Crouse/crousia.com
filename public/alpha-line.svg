@@ -1,0 +1,14 @@
+<svg width="120" height="120" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <!-- Alpha character -->
+  <text x="50" y="65" text-anchor="middle" font-size="64" font-family="serif">
+    α
+  </text>
+
+  <!-- Vertical line (centered on alpha) -->
+  <line x1="47" y1="28" x2="47" y2="73" stroke="black" stroke-width="3"/>
+
+  <!-- Project name -->
+  <text x="50" y="94" text-anchor="middle" font-size="8" font-family="serif" font-style="italic">
+    The Alphacoin Project
+  </text>
+</svg>
