@@ -10,7 +10,6 @@ const linkItems = [
   { name: 'ECHAD', url: 'https://echad.crousia.com' },
   { name: 'LAB', url: 'https://lab.crousia.com' },
   { name: 'MUSIC', url: 'https://music.crousia.com' },
-  { name: 'VERDIS', url: 'https://verdis.crousia.com' },
   { name: 'USA', url: 'https://usa.crousia.com', unicode: 'ŪSA' },
   { name: 'BUS', url: 'https://bus.crousia.com' },
 ];
