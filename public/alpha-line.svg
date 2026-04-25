@@ -1,4 +1,7 @@
 <svg width="120" height="120" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+  <!-- White background with bold black outline -->
+  <rect x="2" y="2" width="96" height="96" fill="white" stroke="black" stroke-width="4"/>
+
   <!-- Alpha character -->
   <text x="50" y="65" text-anchor="middle" font-size="64" font-family="serif">
     α
