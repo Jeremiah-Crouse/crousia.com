@@ -11,6 +11,7 @@ import WebSocket from "ws";
 import multer from "multer";
 import { Jimp } from "jimp";
 import Stripe from "stripe";
+import archivesRouter from "./archives.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -568,30 +569,7 @@ app.post('/api/comments/:date', (req, res) => {
   }
 });
 
-app.get('/api/archives', (req, res) => {
-  try {
-    const today = new Date().toLocaleDateString('en-CA');
-    const files = fs.readdirSync(ARCHIVES_DIR)
-      .filter(f => f.endsWith('.json') && f.replace('.json', '') !== today)
-      .map(f => f.replace('.json', ''))
-      .sort()
-      .reverse();
-    res.json({ archives: files });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
-
-app.get('/api/archive/:date', (req, res) => {
-  try {
-    const { date } = req.params;
-    const p = path.join(ARCHIVES_DIR, `${date}.json`);
-    if (fs.existsSync(p)) res.json({ date, content: fs.readFileSync(p, 'utf-8') });
-    else res.status(404).json({ error: 'Not found' });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
+app.use('/api', archivesRouter);
 
 // Static Hosting
 app.use(express.static(path.join(__dirname, "dist")));
