@@ -59,15 +59,15 @@ export default function Nav({ currentView, setView }) {
   };
 
   const navItems = [
-    { label: 'HOME', view: 'home' },
-    { label: 'ARCHIVE', view: 'log' },
-    { label: 'LINKS', view: 'links' },
-    { label: 'ABOUT', view: 'about' },
+    { label: 'Home', view: 'home' },
+    { label: 'Archive', view: 'log' },
+    { label: 'Links', view: 'links' },
+    { label: 'About', view: 'about' },
   ];
 
   if (!isAdmin()) {
-    navItems.push({ label: 'SIGN IN', url: 'https://qwert.crousia.com' });
-    navItems.push({ label: 'SIGN UP', view: 'signup' });
+    navItems.push({ label: 'Sign In', url: 'https://qwert.crousia.com' });
+    navItems.push({ label: 'Sign Up', view: 'signup' });
   }
 
   if (isMobile) {
@@ -109,7 +109,7 @@ export default function Nav({ currentView, setView }) {
             {isAdmin() && (
               <a onClick={() => { performLogout(); setMenuOpen(false); }}>
                 <CrousianText
-                  text="LOGOUT"
+                  text="Logout"
                   nav
                   style={{ height: '4rem', width: 'auto' }}
                 />
@@ -149,7 +149,7 @@ export default function Nav({ currentView, setView }) {
         {isAdmin() && (
           <a onClick={performLogout}>
             <CrousianText
-              text="LOGOUT"
+              text="Logout"
               nav
               style={{ height: '4rem' }}
             />

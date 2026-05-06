@@ -86,9 +86,9 @@ export default function Home() {
 
   return (
     <div className="container">
-      <CrousianText text="INCOME INSURANCE" size={0.5} />
+      <CrousianText text="Today's Special" size={0.5} />
       <p className="date-display">{new Date().toLocaleDateString()}</p>
-      <div className="thoughts-label">MASTER DOCUMENT</div>
+      <div className="thoughts-label">Say what you Will</div>
       <PageTabs 
         headings={h2Headings} 
         activeIndex={activeHeading}

@@ -182,13 +182,13 @@ export default function Log() {
     return () => editorEl.removeEventListener('scroll', handleScroll);
   }, [pageHeadings, activePage]);
 
-  if (loading) return <div className="container"><CrousianText text="THE ARCHIVE" size={0.7} /><p>Loading...</p></div>;
+  if (loading) return <div className="container"><CrousianText text="The Archive" size={0.7} /><p>Loading...</p></div>;
 
   const selectedLog = logs.find(l => l.date === selectedDate);
 
   return (
     <div className="container">
-      <CrousianText text="THE ARCHIVE" size={0.7} />
+      <CrousianText text="The Archive" size={0.7} />
       
       <div className="page-tabs-sticky">
         {logs.map((log) => (

@@ -17,7 +17,7 @@ export default function About() {
 
   return (
     <div className="about-container">
-      <CrousianText text="ABOUT" size={0.7} />
+      <CrousianText text="About" size={0.7} />
       <div 
         className="about-content"
         dangerouslySetInnerHTML={{ __html: content }}

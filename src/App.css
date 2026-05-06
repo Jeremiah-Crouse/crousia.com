@@ -364,6 +364,7 @@ body {
 }
 
 .about-content {
+    text-align: justify;
     background: rgba(15, 15, 26, 0.6);
     border: 1px solid var(--gold);
     padding: 2rem;
