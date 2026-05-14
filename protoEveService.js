@@ -62,7 +62,7 @@ export const protoEveGenerate = async (editor, awareness) => {
             options: {
               seed: seed,
               num_predict: 1, // Pull exactly 1 token
-              temperature: 0.8,
+              temperature: 2.0,
               repeat_penalty: 1.1,
               top_p: 0.9,
             }
