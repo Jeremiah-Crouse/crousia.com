@@ -538,6 +538,40 @@ app.post('/api/archive-today', (req, res) => {
   res.json({ success: true, length: content.length, date: today });
 });
 
+// Proxy for Quantum Randomness to bypass CORS
+app.get('/api/proxy/qrng', async (req, res) => {
+  const { length, format } = req.query;
+  const url = `https://lfdr.de/qrng_api/qrng?length=${length}&format=${format}`;
+  try {
+    const response = await fetch(url);
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('QRNG Proxy Error:', error);
+    res.status(500).json({ error: 'Failed to fetch quantum randomness' });
+  }
+});
+
+// Proxy for Ollama to bypass CORS
+app.post('/api/proxy/ollama', async (req, res) => {
+  try {
+    const response = await fetch('http://127.0.0.1:11434/api/chat', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req.body),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Ollama responded with ${response.status}`);
+    }
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error('Ollama Proxy Error:', error);
+    res.status(500).json({ error: 'Failed to communicate with Ollama' });
+  }
+});
+
 app.get('/api/comments/:date', (req, res) => {
   try {
     const { date } = req.params;

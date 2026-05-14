@@ -3,8 +3,8 @@
  */
 import { $getRoot, $createTextNode, $createParagraphNode, $getSelection, $isRangeSelection } from 'lexical';
 
-const QRNG_URL = (count) => `https://lfdr.de/qrng_api/qrng?length=${4 * count}&format=HEX`;
-const OLLAMA_URL = 'http://127.0.0.1:11434/api/chat';
+const QRNG_URL = (count) => `/api/proxy/qrng?length=${4 * count}&format=HEX`;
+const OLLAMA_URL = '/api/proxy/ollama';
 
 export const protoEveGenerate = async (editor, awareness) => {
   let isDone = false;
