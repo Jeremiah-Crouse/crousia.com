@@ -113,7 +113,7 @@ export default function Log() {
         const archives = await Promise.all(
           dates.map(async (date) => {
             const result = await getArchive(date);
-            return { date, content: result?.content || null };
+            return { date, content: result || null };
           })
         );
         setLogs(archives);

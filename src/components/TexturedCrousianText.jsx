@@ -65,6 +65,7 @@ export default function TexturedCrousianText({
 }) {
   const fontSize = resolveFontSize({ size, style, logo, nav });
   const chars = [...text];
+  const hasHebrew = chars.some(c => c >= '\u0590' && c <= '\u05FF');
   const { height, fontSize: _ignoredFontSize, ...containerStyle } = style;
 
   // Generate random offsets once for each character
@@ -100,6 +101,8 @@ export default function TexturedCrousianText({
           display: 'inline-flex',
           alignItems: 'center',
           whiteSpace: 'pre',
+          direction: hasHebrew ? 'rtl' : 'ltr',
+          unicodeBidi: 'embed',
           fontFamily: "'Cormorant Garamond', serif",
           fontWeight: 600,
           fontSize,

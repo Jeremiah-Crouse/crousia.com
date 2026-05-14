@@ -2,8 +2,7 @@ import React from 'react';
 import CrousianText from '../components/CrousianText';
 
 const linkItems = [
-  { name: 'Alphacoin United Kingdom', url: 'https://alphacoin.uk' },
-  { name: 'Crousia on GitHub', url: 'https://github.com/jeremiah-crouse/crousia-v2' },
+  { name: 'shadow', url: 'https://shadow.crousia.com' },
 ];
 
 export default function Links() {

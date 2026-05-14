@@ -1,0 +1,45 @@
+#!/bin/bash
+# ---------------------------------------
+# Crousia V2 – Internal Ubuntu Launcher (non-blocking)
+# ---------------------------------------
+
+DIST_DIR="/root/crousia-v2/dist"
+SERVE_SCRIPT="/root/crousia-v2/serve.js"
+YJS_SERVER="/root/crousia-v2/node_modules/y-websocket/bin/server.js"
+ALPHA_SERVER="/root/alphacoin/server.js"
+TUNNEL_UUID="8f48ffd5-c69c-4fe2-911b-d492d965d028"
+LOG_DIR="/root/crousia-v2/logs"
+
+mkdir -p "$LOG_DIR"
+
+start_service() {
+    local name="$1"
+    local cmd="$2"
+    local logfile="$3"
+
+    echo "[*] Starting $name..."
+    nohup env PORT=4000 $cmd >> "$logfile" 2>&1 &
+    echo $! > "$LOG_DIR/$name.pid"
+    echo "[*] $name PID: $(cat $LOG_DIR/$name.pid)"
+}
+
+# Kill previous instances
+pkill -9 -f "serve.js" || true
+pkill -9 -f "websocket" || true
+pkill -9 -f "cloudflared" || true
+pkill -9 -f "alphacoin" || true
+sleep 1
+
+# Force kill port 3000
+fuser -k 3000/tcp 2>/dev/null || true
+sleep 1
+
+# Start services
+start_service "React" "/data/data/com.termux/files/usr/bin/node /root/crousia-v2/serve.js" "$LOG_DIR/serve.log"
+start_service "Yjs" "/data/data/com.termux/files/usr/bin/node /root/crousia-v2/node_modules/y-websocket/bin/server.js" "$LOG_DIR/sync.log"
+sleep 2
+start_service "Alphacoin" "/data/data/com.termux/files/usr/bin/node /root/alphacoin/server.js" "/root/crousia-v2/logs/alphacoin.log"
+sleep 2
+start_service "Tunnel" "cloudflared tunnel run '$TUNNEL_UUID'" "$LOG_DIR/tunnel.log"
+
+echo "[*] All services started. Logs: $LOG_DIR"
