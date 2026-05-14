@@ -23,6 +23,7 @@ import {
   cleanupSharedState,
 } from "../utils/collaboration";
 import { UserContext } from "../context/UserContext";
+import { ProtoEveButton } from "./ProtoEveButton";
 
 import {
   $getSelection,
@@ -84,7 +85,8 @@ function AuthorColorPlugin({ username }) {
   useEffect(() => {
     if (!color) return;
 
-    return editor.registerUpdateListener(() => {
+    return editor.registerUpdateListener(({ tags }) => {
+      if (tags.has('proto-eve')) return; // Don't interfere with Proto Eve
       editor.update(() => {
         const selection = $getSelection();
         if (!$isRangeSelection(selection)) return;
@@ -171,6 +173,12 @@ export default function Editor({ onH2Found }) {
     [readonly, username]
   );
 
+  // Ensure we have access to the underlying YJS types for Proto Eve
+  const { yText, awareness } = useMemo(() => ({
+    yText: doc.getText("crousia-editor"),
+    awareness: provider.awareness
+  }), [doc, provider]);
+
   const initialConfig = {
     namespace: "CrousiaEditor",
     editable: !readonly,
@@ -220,6 +228,11 @@ export default function Editor({ onH2Found }) {
         <PageTracker onH2Found={onH2Found} />
         <HistoryPlugin />
         <AutoSavePlugin />
+        {!readonly && (
+          <div className="toolbar" style={{ borderBottom: 'none', marginBottom: 0 }}>
+            <ProtoEveButton yText={yText} awareness={awareness} />
+          </div>
+        )}
         <ImagePlugin isAdmin={!readonly} username={username} />
         <MarkdownShortcutPlugin transformers={ALL_TRANSFORMERS} />
       </div>
