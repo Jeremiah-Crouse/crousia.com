@@ -1,4 +1,7 @@
-import { $getRoot, $getSelection } from 'lexical';
+import { $getRoot, $getSelection, $isParagraphNode, $isTextNode } from 'lexical';
+import { $createHeadingNode, $createQuoteNode } from '@lexical/rich-text';
+// Note: HorizontalRuleNode and its creator usually come from the plugin package.
+import { $createHorizontalRuleNode } from '@lexical/react/LexicalHorizontalRuleNode';
 
 const QRNG_URL = '/api/proxy/qrng?length=4&format=HEX';
 const OPENCODE_URL = '/api/proxy/opencode';
@@ -48,6 +51,47 @@ function applyInlineTransformers(textNode) {
 
     return;
   }
+}
+
+function applyBlockTransformers(element) {
+  if (!$isParagraphNode(element)) return element;
+
+  const text = element.getTextContent();
+
+  // Heading: #, ##, ###, etc.
+  const headingMatch = text.match(/^(#{1,6})\s/);
+  if (headingMatch) {
+    const level = headingMatch[1].length;
+    const newElement = $createHeadingNode(`h${level}`);
+    const firstChild = element.getFirstChild();
+    if ($isTextNode(firstChild)) {
+      firstChild.setTextContent(text.slice(headingMatch[0].length));
+    }
+    newElement.append(...element.getChildren());
+    element.replace(newElement);
+    return newElement;
+  }
+
+  // Quote: >
+  if (text.startsWith('> ')) {
+    const newElement = $createQuoteNode();
+    const firstChild = element.getFirstChild();
+    if ($isTextNode(firstChild)) {
+      firstChild.setTextContent(text.slice(2));
+    }
+    newElement.append(...element.getChildren());
+    element.replace(newElement);
+    return newElement;
+  }
+
+  // Horizontal Rule: ---
+  if (text.trim() === '---') {
+    const hr = $createHorizontalRuleNode();
+    element.replace(hr);
+    return hr;
+  }
+
+  return element;
 }
 
 export const protoEveGenerate = async (editor, awareness, yText) => {
@@ -146,10 +190,17 @@ export const protoEveGenerate = async (editor, awareness, yText) => {
       editor.update(() => {
         const root = $getRoot();
         const children = root.getChildren();
-        // Start from the last known child index before the stream began
-        // to account for text appended to an existing paragraph.
-        for (let i = Math.max(0, startChildCount - 1); i < children.length; i++) {
-          const child = children[i];
+        
+        // We iterate specifically to catch block-level changes
+        for (let i = Math.max(0, startChildCount - 1); i < root.getChildrenSize(); i++) {
+          const currentChildren = root.getChildren();
+          let child = currentChildren[i];
+          if (!child || !child.isAttached()) continue;
+
+          // 1. Transform Block Type (Paragraph -> Heading/Quote/HR)
+          child = applyBlockTransformers(child);
+
+          // 2. Transform Inline Styles (Bold/Italic/etc)
           const textNodes = child.getAllTextNodes ? child.getAllTextNodes() : [];
           for (const tn of textNodes) {
             applyInlineTransformers(tn);
