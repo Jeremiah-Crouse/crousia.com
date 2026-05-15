@@ -540,15 +540,22 @@ app.post('/api/archive-today', (req, res) => {
 
 // Proxy for Quantum Randomness to bypass CORS
 app.get('/api/proxy/qrng', async (req, res) => {
-  const { length, format } = req.query;
+  const { length = 4, format = 'HEX' } = req.query;
   const url = `https://lfdr.de/qrng_api/qrng?length=${length}&format=${format}`;
   try {
     const response = await fetch(url);
     const data = await response.json();
-    res.json(data);
+    if (data && data.qrn) {
+      return res.json(data);
+    }
+    throw new Error('Invalid QRNG response');
   } catch (error) {
-    console.error('QRNG Proxy Error:', error);
-    res.status(500).json({ error: 'Failed to fetch quantum randomness' });
+    console.error('QRNG Proxy Error, falling back to local:', error.message);
+    const bytes = parseInt(length) || 4;
+    const qrn = Array.from({ length: bytes }, () =>
+      Math.floor(Math.random() * 256).toString(16).padStart(2, '0')
+    ).join('');
+    res.json({ length: bytes, qrn, source: 'local-fallback' });
   }
 });
 
@@ -569,6 +576,73 @@ app.post('/api/proxy/ollama', async (req, res) => {
   } catch (error) {
     console.error('Ollama Proxy Error:', error);
     res.status(500).json({ error: 'Failed to communicate with Ollama' });
+  }
+});
+
+// Proxy for OpenCode API (Big Pickle)
+app.post('/api/proxy/opencode', async (req, res) => {
+  try {
+    let apiKey;
+    try {
+      const authPath = '/root/.local/share/opencode/auth.json';
+      const authData = JSON.parse(fs.readFileSync(authPath, 'utf-8'));
+      apiKey = authData.opencode?.key;
+    } catch (e) {
+      console.error('OpenCode auth error:', e.message);
+      return res.status(500).json({ error: 'Failed to read opencode API key' });
+    }
+
+    if (!apiKey) {
+      return res.status(500).json({ error: 'No opencode API key found' });
+    }
+
+    const { seed, messages, system } = req.body;
+
+    const body = {
+      model: 'big-pickle',
+      messages: [
+        ...(system ? [{ role: 'system', content: system }] : []),
+        ...messages
+      ],
+      stream: true,
+      temperature: 2.0,
+      ...(seed ? { seed } : {}),
+    };
+
+    const response = await fetch('https://opencode.ai/zen/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(`OpenCode API responded with ${response.status}: ${errText}`);
+    }
+
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      res.write(decoder.decode(value));
+    }
+    res.end();
+  } catch (error) {
+    console.error('OpenCode Proxy Error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: 'Failed to proxy to OpenCode' });
+    } else {
+      res.end();
+    }
   }
 });
 

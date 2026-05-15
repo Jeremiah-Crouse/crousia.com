@@ -1,125 +1,159 @@
-/**
- * Service to handle ProtoEve token generation with Quantum Seeding
- */
-import { $getRoot, $createTextNode, $createParagraphNode, $getSelection, $isRangeSelection } from 'lexical';
+import { $getRoot } from 'lexical';
 
-const QRNG_URL = (count) => `/api/proxy/qrng?length=${4 * count}&format=HEX`;
-const OLLAMA_URL = '/api/proxy/ollama';
+const QRNG_URL = '/api/proxy/qrng?length=4&format=HEX';
+const OPENCODE_URL = '/api/proxy/opencode';
 
-export const protoEveGenerate = async (editor, awareness) => {
-  let isDone = false;
-  let accumulatedThisSession = "";
+const TEXT_FORMAT_PATTERNS = [
+  { regex: /(\*\*\*)(.+?)\1/, format: ['bold', 'italic'] },
+  { regex: /(\*\*)(.+?)\1/, format: ['bold'] },
+  { regex: /(__)(.+?)\1/, format: ['bold'] },
+  { regex: /(\*)(.+?)\1/, format: ['italic'] },
+  { regex: /(_)(.+?)\1/, format: ['italic'] },
+  { regex: /(`)(.+?)\1/, format: ['code'] },
+  { regex: /(~~)(.+?)\1/, format: ['strikethrough'] },
+];
 
-  // Get the current document state to use as the starting point for the assistant role
-  const initialEditorText = editor.getEditorState().read(() => $getRoot().getTextContent());
+function applyInlineTransformers(textNode) {
+  const text = textNode.getTextContent();
 
-  // Set cursor label to "Proto Eve" in YJS awareness
+  for (const { regex, format } of TEXT_FORMAT_PATTERNS) {
+    const match = text.match(regex);
+    if (!match) continue;
+
+    const fullMatch = match[0];
+    const delimiter = match[1];
+    const innerText = match[2];
+    const startIndex = match.index;
+    const endIndex = startIndex + fullMatch.length;
+
+    let currentNode, remainderNode;
+    if (startIndex === 0) {
+      [currentNode, remainderNode] = textNode.splitText(endIndex);
+    } else {
+      let leadingNode;
+      [leadingNode, currentNode, remainderNode] = textNode.splitText(startIndex, endIndex);
+    }
+
+    currentNode.setTextContent(innerText);
+    for (const fmt of format) {
+      if (!currentNode.hasFormat(fmt)) {
+        currentNode.toggleFormat(fmt);
+      }
+    }
+
+    applyInlineTransformers(currentNode);
+    if (remainderNode) {
+      applyInlineTransformers(remainderNode);
+    }
+
+    return;
+  }
+}
+
+export const protoEveGenerate = async (editor, awareness, yText) => {
+  let fullText = "";
+
   const originalUser = awareness.getLocalState()?.user;
   awareness.setLocalStateField('user', {
     ...originalUser,
-    name: 'Proto Eve',
-    color: '#FFD700', // Gold color for royalty
+    name: 'Big Pickle',
+    color: '#FFD700',
   });
 
+  let startChildCount = 0;
+  editor.getEditorState().read(() => {
+    startChildCount = $getRoot().getChildrenSize();
+  });
+
+  let seed = null;
   try {
-    while (!isDone) {
-      // 1. Fetch 800 bytes (enough for 200 tokens/seeds)
-      // Convert hex string to array of uint32 seeds
-      // Each seed is 8 hex chars (4 bytes)
-      const seeds = [];
-      const NUM_SEEDS_TO_FETCH = 200;
+    const qrngResponse = await fetch(QRNG_URL);
+    if (qrngResponse.ok) {
+      const { qrn } = await qrngResponse.json();
+      seed = parseInt(qrn.slice(0, 8), 16) >>> 0;
+      console.log(`Quantum seed: ${seed}`);
+    }
+  } catch (e) {
+    console.warn('QRNG failed, using Math.random seed');
+  }
 
-      try {
-        const qrngResponse = await fetch(QRNG_URL(NUM_SEEDS_TO_FETCH));
-        if (!qrngResponse.ok) throw new Error(`QRNG API returned status ${qrngResponse.status}`);
-        const { qrn } = await qrngResponse.json();
-        
-        for (let i = 0; i < qrn.length; i += 8) {
-          seeds.push(parseInt(qrn.slice(i, i + 8), 16) >>> 0);
-        }
-        console.log(`Fetched ${seeds.length} quantum seeds.`);
-      } catch (qrngError) {
-        console.warn(`Failed to fetch quantum randomness (CORS or network issue): ${qrngError.message}. Falling back to pseudorandom numbers.`);
-        // Fallback to pseudorandom numbers if QRNG fails
-        for (let i = 0; i < NUM_SEEDS_TO_FETCH; i++) {
-          seeds.push(Math.floor(Math.random() * 0xFFFFFFFF) >>> 0); // Generate a 32-bit unsigned integer
+  if (!seed) {
+    seed = Math.floor(Math.random() * 0xFFFFFFFF) >>> 0;
+  }
+
+  try {
+    const initialText = editor.getEditorState().read(() => $getRoot().getTextContent());
+
+    const res = await fetch(OPENCODE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        seed,
+        system: "You are Big Pickle, the author of this living Crousia document. Continue writing naturally. Mark down your thoughts. Do not provide meta-commentary or stop prematurely. Output in markdown format.",
+        messages: [
+          {
+            role: 'user',
+            content: `Continue writing the document. This is a collaborative space. Here is what has been written so far:\n\n${initialText}`
+          }
+        ],
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`OpenCode API error: ${res.status} ${err}`);
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    let streamDone = false;
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const payload = line.slice(6).trim();
+        if (payload === '[DONE]') { streamDone = true; break; }
+
+        try {
+          const chunk = JSON.parse(payload);
+          const delta = chunk.choices?.[0]?.delta?.content;
+          if (!delta) continue;
+
+          fullText += delta;
+          yText.insert(yText.length, delta);
+        } catch (e) {
+          // skip parse errors
         }
       }
-      // 2. Generate tokens one by one using the seeds
-      for (const seed of seeds) {
-        console.log(`Generating token with seed: ${seed}...`);
-        
-        const response = await fetch(OLLAMA_URL, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model: 'ProtoEve',
-            messages: [
-              { role: 'system', content: "You are Proto Eve, the author of this document. Continue writing your work naturally and fluidly. Do not provide meta-commentary or stop prematurely." },
-              { role: 'assistant', content: initialEditorText + accumulatedThisSession }
-            ],
-            stream: false,
-            options: {
-              seed: seed,
-              num_predict: 1, // Pull exactly 1 token
-              temperature: 2.0,
-              repeat_penalty: 1.1,
-              top_p: 0.9,
-            }
-          }),
-        });
 
-        if (!response.ok) {
-            const errText = await response.text();
-            console.error("Ollama Error:", errText);
-            throw new Error(`Ollama failed: ${response.status}`);
-        }
-        
-        const result = await response.json();
-        const newToken = result.message?.content;
-        console.log("Ollama Raw Response:", result); // Log the full response for debugging
+      if (streamDone) break;
+    }
 
-        // Skip if there's no visible token, unless it's the end
-        if (!newToken && !result.done) continue;
-
-        accumulatedThisSession += newToken;
-
-        editor.update(() => {
-          const root = $getRoot();
-          let lastChild = root.getLastChild();
-          
-          // Ensure we have a paragraph to write into
-          if (!lastChild || lastChild.getType() !== 'paragraph') {
-            lastChild = $createParagraphNode();
-            root.append(lastChild);
+    if (fullText.trim()) {
+      editor.update(() => {
+        const root = $getRoot();
+        const children = root.getChildren();
+        for (let i = startChildCount; i < children.length; i++) {
+          const child = children[i];
+          const textNodes = child.getAllTextNodes ? child.getAllTextNodes() : [];
+          for (const tn of textNodes) {
+            applyInlineTransformers(tn);
           }
-
-          if (newToken) {
-            const textNode = $createTextNode(newToken);
-            textNode.setStyle('color: #FFD700');
-            lastChild.append(textNode);
-            
-            // Move cursor to the end of the new token and scroll into view
-            textNode.select();
-          }
-        }, { tag: 'proto-eve' });
-        
-        // 4. Check for true end signal (EOS)
-        // In api/chat, done_reason 'stop' means it reached a natural conclusion
-        if (result.done && result.done_reason === 'stop') {
-          console.log("Proto Eve has finished her thought.");
-          isDone = true;
-          break;
         }
-      }
-      
-      // If 200 seeds are exhausted and not done, the while loop continues 
-      // and fetches another 800 bytes.
+      });
     }
   } catch (error) {
-    console.error("Proto Eve Error:", error);
+    console.error("Big Pickle Error:", error);
   } finally {
-    // Restore original cursor label
     awareness.setLocalStateField('user', originalUser);
   }
 };

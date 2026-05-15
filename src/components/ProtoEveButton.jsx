@@ -10,9 +10,9 @@ export function ProtoEveButton({ yText, awareness }) {
     if (isGenerating) return;
     
     setIsGenerating(true);
-    console.log("Summoning Proto Eve...");
+    console.log("Summoning Big Pickle...");
     
-    await protoEveGenerate(editor, awareness);
+    await protoEveGenerate(editor, awareness, yText);
     setIsGenerating(false);
   };
 
@@ -28,7 +28,7 @@ export function ProtoEveButton({ yText, awareness }) {
         cursor: 'pointer'
       }}
     >
-      {isGenerating ? 'Proto Eve is writing...' : 'Summon Proto Eve'}
+      {isGenerating ? 'Big Pickle is writing...' : 'Summon Big Pickle'}
     </button>
   );
 }
