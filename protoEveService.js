@@ -1,4 +1,4 @@
-import { $getRoot } from 'lexical';
+import { $getRoot, $getSelection } from 'lexical';
 
 const QRNG_URL = '/api/proxy/qrng?length=4&format=HEX';
 const OPENCODE_URL = '/api/proxy/opencode';
@@ -129,7 +129,11 @@ export const protoEveGenerate = async (editor, awareness, yText) => {
           if (!delta) continue;
 
           fullText += delta;
-          yText.insert(yText.length, delta);
+          // Insert via the editor to ensure immediate state consistency
+          editor.update(() => {
+            const selection = $getSelection() || $getRoot().selectEnd();
+            selection.insertText(delta);
+          });
         } catch (e) {
           // skip parse errors
         }
@@ -142,7 +146,9 @@ export const protoEveGenerate = async (editor, awareness, yText) => {
       editor.update(() => {
         const root = $getRoot();
         const children = root.getChildren();
-        for (let i = startChildCount; i < children.length; i++) {
+        // Start from the last known child index before the stream began
+        // to account for text appended to an existing paragraph.
+        for (let i = Math.max(0, startChildCount - 1); i < children.length; i++) {
           const child = children[i];
           const textNodes = child.getAllTextNodes ? child.getAllTextNodes() : [];
           for (const tn of textNodes) {
