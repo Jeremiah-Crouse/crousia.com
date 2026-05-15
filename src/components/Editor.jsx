@@ -23,7 +23,7 @@ import {
   cleanupSharedState,
 } from "../utils/collaboration";
 import { UserContext } from "../context/UserContext";
-import { ProtoEveButton } from "./ProtoEveButton";
+import { EveButton } from "./EveButton";
 
 import {
   $getSelection,
@@ -230,7 +230,7 @@ export default function Editor({ onH2Found }) {
         <AutoSavePlugin />
         {!readonly && (
           <div className="toolbar" style={{ borderBottom: 'none', marginBottom: 0 }}>
-            <ProtoEveButton yText={yText} awareness={awareness} />
+            <EveButton yText={yText} awareness={awareness} />
           </div>
         )}
         <ImagePlugin isAdmin={!readonly} username={username} />
