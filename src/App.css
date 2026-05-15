@@ -25,7 +25,7 @@
 body {
     margin: 0;
     font-family: 'Cormorant Garamond', serif;
-    background: url('/stars-tile.png') repeat, radial-gradient(circle at top, var(--bg-primary), #000) fixed !important;
+    background: url('/stars-tile-mobile.jpg') repeat, radial-gradient(circle at top, var(--bg-primary), #000) fixed !important;
     background-size: 512px 512px, auto;
     color: var(--text-primary);
     min-height: 100vh;
