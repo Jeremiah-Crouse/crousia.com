@@ -4,7 +4,8 @@ import { $createHorizontalRuleNode } from '@lexical/react/LexicalHorizontalRuleN
 import { pipeline, random, TextStreamer } from '@huggingface/transformers';
 
 const QRNG_URL = import.meta.env.VITE_EVE_QRNG_URL || '/api/proxy/qrng?length=4&format=HEX';
-const EVE_MODEL = import.meta.env.VITE_EVE_MODEL || 'Xenova/tiny-random-mistral';
+const EVE_MODEL = import.meta.env.VITE_EVE_MODEL || 'Xenova/distilgpt2';
+const EVE_DTYPE = import.meta.env.VITE_EVE_DTYPE || 'q8';
 const SYSTEM_TOKEN_BUDGET = 50;
 const PROMPT_TOKEN_BUDGET = 50;
 const MIN_NEW_TOKENS = 50;
@@ -100,7 +101,7 @@ function applyBlockTransformers(element) {
 function getGenerator() {
   if (!generatorPromise) {
     generatorPromise = pipeline('text-generation', EVE_MODEL, {
-      dtype: 'int8',
+      dtype: EVE_DTYPE,
       device: 'wasm',
     });
   }
