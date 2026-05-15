@@ -189,22 +189,29 @@ export const protoEveGenerate = async (editor, awareness, yText) => {
     if (fullText.trim()) {
       editor.update(() => {
         const root = $getRoot();
-        // Get the children *after* all incremental insertions are done.
-        // We need to re-fetch children as they might have changed due to incremental inserts.
-        const children = root.getChildren();
 
         // Determine the starting index for processing. We start from `initialChildrenSize - 1`
         // to include the last paragraph that might have been appended to or transformed.
         const startIndexForProcessing = Math.max(0, initialChildrenSize - 1);
-        for (let i = startIndexForProcessing; i < children.length; i++) {
-          let child = children[i];
-          if (!child || !child.isAttached()) continue;
+
+        // Iterate backwards to safely handle node replacements and removals
+        // without invalidating the loop index.
+        // We fetch the children array once at the start of the backward loop
+        // to ensure we process all relevant nodes that exist at the end of the stream.
+        // Lexical's `replace` operation handles the DOM structure correctly,
+        // so iterating over a snapshot of children (from end to start) is safe here.
+        const childrenToProcess = root.getChildren();
+        for (let i = childrenToProcess.length - 1; i >= startIndexForProcessing; i--) {
+          let child = childrenToProcess[i];
+          if (!child || !child.isAttached()) {
+            continue;
+          }
 
           // 1. Transform Block Type (Paragraph -> Heading/Quote/HR)
-          child = applyBlockTransformers(child);
+          const transformedChild = applyBlockTransformers(child);
 
           // 2. Transform Inline Styles (Bold/Italic/etc)
-          const textNodes = child.getAllTextNodes ? child.getAllTextNodes() : [];
+          const textNodes = transformedChild.getAllTextNodes ? transformedChild.getAllTextNodes() : [];
           for (const tn of textNodes) {
             applyInlineTransformers(tn);
           }
