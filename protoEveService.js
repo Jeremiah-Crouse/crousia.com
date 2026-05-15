@@ -104,9 +104,9 @@ export const protoEveGenerate = async (editor, awareness, yText) => {
     color: '#FFD700',
   });
 
-  let startChildCount = 0;
+  let initialChildrenSize = 0; // To track the number of children before AI starts writing
   editor.getEditorState().read(() => {
-    startChildCount = $getRoot().getChildrenSize();
+    initialChildrenSize = $getRoot().getChildrenSize();
   });
 
   let seed = null;
@@ -173,7 +173,7 @@ export const protoEveGenerate = async (editor, awareness, yText) => {
           if (!delta) continue;
 
           fullText += delta;
-          // Insert via the editor to ensure immediate state consistency
+          // Insert via the editor to ensure immediate state consistency (unrendered)
           editor.update(() => {
             const selection = $getSelection() || $getRoot().selectEnd();
             selection.insertText(delta);
@@ -189,12 +189,15 @@ export const protoEveGenerate = async (editor, awareness, yText) => {
     if (fullText.trim()) {
       editor.update(() => {
         const root = $getRoot();
+        // Get the children *after* all incremental insertions are done.
+        // We need to re-fetch children as they might have changed due to incremental inserts.
         const children = root.getChildren();
-        
-        // We iterate specifically to catch block-level changes
-        for (let i = Math.max(0, startChildCount - 1); i < root.getChildrenSize(); i++) {
-          const currentChildren = root.getChildren();
-          let child = currentChildren[i];
+
+        // Determine the starting index for processing. We start from `initialChildrenSize - 1`
+        // to include the last paragraph that might have been appended to or transformed.
+        const startIndexForProcessing = Math.max(0, initialChildrenSize - 1);
+        for (let i = startIndexForProcessing; i < children.length; i++) {
+          let child = children[i];
           if (!child || !child.isAttached()) continue;
 
           // 1. Transform Block Type (Paragraph -> Heading/Quote/HR)
