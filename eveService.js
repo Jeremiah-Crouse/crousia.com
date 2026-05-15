@@ -100,7 +100,7 @@ function applyBlockTransformers(element) {
 function getGenerator() {
   if (!generatorPromise) {
     generatorPromise = pipeline('text-generation', EVE_MODEL, {
-      dtype: 'q8',
+      dtype: 'int8',
       device: 'wasm',
     });
   }
