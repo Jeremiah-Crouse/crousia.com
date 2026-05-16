@@ -1,20 +1,9 @@
-import { $getRoot, $getSelection, $isParagraphNode, $isTextNode } from 'lexical';
+import { $getRoot, $getSelection, $isParagraphNode, $isTextNode, $createParagraphNode, $createTextNode } from 'lexical';
 import { $createHeadingNode, $createQuoteNode } from '@lexical/rich-text';
 import { $createHorizontalRuleNode } from '@lexical/react/LexicalHorizontalRuleNode';
-import { pipeline, random, TextStreamer } from '@huggingface/transformers';
 
 const QRNG_URL = import.meta.env.VITE_EVE_QRNG_URL || '/api/proxy/qrng?length=4&format=HEX';
-const EVE_MODEL = import.meta.env.VITE_EVE_MODEL || 'Xenova/distilgpt2';
-const EVE_DTYPE = import.meta.env.VITE_EVE_DTYPE || 'q8';
-const SYSTEM_TOKEN_BUDGET = 50;
-const PROMPT_TOKEN_BUDGET = 50;
-const MIN_NEW_TOKENS = 50;
-const MAX_NEW_TOKENS = 100;
-
-const EVE_SYSTEM_PROMPT =
-  'Eve is a tiny local oracle. Continue the page in brief, strange, vivid fragments. No explanations, no summaries, no assistant disclaimers.';
-
-let generatorPromise;
+const OPENCODE_URL = import.meta.env.VITE_EVE_OPENCODE_URL || '/api/proxy/opencode';
 
 const TEXT_FORMAT_PATTERNS = [
   { regex: /(\*\*\*)(.+?)\1/, format: ['bold', 'italic'] },
@@ -98,98 +87,27 @@ function applyBlockTransformers(element) {
   return element;
 }
 
-function getGenerator() {
-  if (!generatorPromise) {
-    generatorPromise = pipeline('text-generation', EVE_MODEL, {
-      dtype: EVE_DTYPE,
-      device: 'wasm',
-    });
-  }
-  return generatorPromise;
-}
-
-function extractEntropyHex(data) {
-  const value = data?.qrn ?? data?.hex ?? data?.random ?? data?.seed ?? data?.value;
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return Math.trunc(value).toString(16).padStart(8, '0').slice(-8);
-  }
-  if (typeof value === 'string') {
-    const hex = value.replace(/[^a-fA-F0-9]/g, '');
-    return hex.length >= 8 ? hex.slice(0, 8) : null;
-  }
-  if (Array.isArray(value)) {
-    const hex = value
-      .map((byte) => Number(byte).toString(16).padStart(2, '0'))
-      .join('');
-    return hex.length >= 8 ? hex.slice(0, 8) : null;
-  }
-  return null;
-}
-
-async function getEntropySettings() {
-  try {
-    const response = await fetch(QRNG_URL, { cache: 'no-store' });
-    if (!response.ok) throw new Error(`QRNG responded with ${response.status}`);
-
-    const data = await response.json();
-    if (data?.source === 'local-fallback') {
-      throw new Error('QRNG returned local fallback data');
-    }
-
-    const entropyHex = extractEntropyHex(data);
-    if (!entropyHex) throw new Error('QRNG response did not include usable hex entropy');
-
-    const seed = parseInt(entropyHex, 16) >>> 0;
-    const temperature = 2 + (seed / 0xffffffff) * 0.5;
-    return { ok: true, seed, temperature, entropyHex };
-  } catch (error) {
-    console.warn('Eve entropy failed; using seed 0 and temperature 0.1:', error);
-    return { ok: false, seed: 0, temperature: 0.1, entropyHex: '00000000' };
-  }
-}
-
-function sliceTokens(tokenizer, text, maxTokens, fromEnd = false) {
-  const tokens = tokenizer.encode(text || '', { add_special_tokens: false });
-  const sliced = fromEnd ? tokens.slice(-maxTokens) : tokens.slice(0, maxTokens);
-  return sliced.length ? tokenizer.decode(sliced, { skip_special_tokens: true }) : '';
-}
-
-function buildPrompt(tokenizer, documentText) {
-  const system = sliceTokens(tokenizer, EVE_SYSTEM_PROMPT, SYSTEM_TOKEN_BUDGET);
-  const recent = sliceTokens(tokenizer, documentText, PROMPT_TOKEN_BUDGET, true);
-  return `${system}\n${recent}`.trim();
-}
-
-function insertText(editor, text) {
-  if (!text) return;
-  editor.update(() => {
-    const selection = $getSelection() || $getRoot().selectEnd();
-    selection.insertText(text);
-  });
-}
-
 function applyMarkdownTransforms(editor, initialChildrenSize) {
   editor.update(() => {
     const root = $getRoot();
-    const startIndexForProcessing = Math.max(0, initialChildrenSize - 1);
-    const childrenToProcess = root.getChildren();
-
-    for (let i = childrenToProcess.length - 1; i >= startIndexForProcessing; i--) {
-      const child = childrenToProcess[i];
+    const children = root.getChildren();
+    for (let i = initialChildrenSize; i < children.length; i++) {
+      const child = children[i];
       if (!child || !child.isAttached()) continue;
-
       const transformedChild = applyBlockTransformers(child);
       const textNodes = transformedChild.getAllTextNodes ? transformedChild.getAllTextNodes() : [];
-      for (const textNode of textNodes) {
-        applyInlineTransformers(textNode);
+      for (const tn of textNodes) {
+        applyInlineTransformers(tn);
       }
     }
   });
 }
 
-export const eveGenerate = async (editor, awareness) => {
-  let fullText = '';
+export const eveGenerate = async (editor, awareness, onProgress, onReasoning) => {
+  let fullText = "";
   const originalUser = awareness.getLocalState()?.user;
+  const report = onProgress || (() => {});
+  const reportReasoning = onReasoning || (() => {});
 
   awareness.setLocalStateField('user', {
     ...originalUser,
@@ -197,43 +115,125 @@ export const eveGenerate = async (editor, awareness) => {
     color: '#00D1B2',
   });
 
-  let initialChildrenSize = 0;
+  let startChildCount = 0;
   editor.getEditorState().read(() => {
-    initialChildrenSize = $getRoot().getChildrenSize();
+    startChildCount = $getRoot().getChildrenSize();
   });
 
+  let seed = null;
   try {
-    const generator = await getGenerator();
-    const { seed, temperature, entropyHex, ok } = await getEntropySettings();
-    random.seed(seed);
+    report('Seeding...');
+    const qrngResponse = await fetch(QRNG_URL);
+    if (qrngResponse.ok) {
+      const data = await qrngResponse.json();
+      const raw = data?.entropy || data?.qrn || data?.hex || data?.random || data?.seed;
+      if (raw) {
+        const hex = String(raw).replace(/[^a-fA-F0-9]/g, '').slice(0, 8);
+        if (hex.length === 8) {
+          seed = parseInt(hex, 16) >>> 0;
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('Entropy fetch failed, using Math.random seed');
+  }
 
-    const documentText = editor.getEditorState().read(() => $getRoot().getTextContent());
-    const prompt = buildPrompt(generator.tokenizer, documentText);
+  if (!seed) {
+    seed = Math.floor(Math.random() * 0xFFFFFFFF) >>> 0;
+  }
 
-    console.log(
-      `Eve entropy ${ok ? 'ok' : 'fallback'}; seed=${seed}; entropy=${entropyHex}; temperature=${temperature.toFixed(3)}`,
-    );
+  try {
+    report('Connecting...');
+    const initialText = editor.getEditorState().read(() => $getRoot().getTextContent());
 
-    const streamer = new TextStreamer(generator.tokenizer, {
-      skip_prompt: true,
-      skip_special_tokens: true,
-      callback_function: (delta) => {
-        fullText += delta;
-        insertText(editor, delta);
-      },
+    const res = await fetch(OPENCODE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        seed,
+        model: 'deepseek-v4-flash-free',
+        stream: true,
+        system: "You are Eve, the author of this living Crousia document. Continue writing naturally. Mark down your thoughts. Do not provide meta-commentary or stop prematurely. Output in markdown format.",
+        messages: [
+          {
+            role: 'user',
+            content: `Continue writing the document. This is a collaborative space. Here is what has been written so far:\n\n${initialText}`
+          }
+        ],
+      }),
     });
 
-    await generator(prompt, {
-      min_new_tokens: MIN_NEW_TOKENS,
-      max_new_tokens: MAX_NEW_TOKENS,
-      do_sample: true,
-      temperature,
-      top_k: 50,
-      streamer,
-    });
+    if (!res.ok) {
+      const err = await res.text();
+      throw new Error(`OpenCode API error: ${res.status} ${err}`);
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+
+    let streamDone = false;
+    report('Eve is writing...');
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || "";
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const payload = line.slice(6).trim();
+        if (payload === '[DONE]') { streamDone = true; break; }
+
+        try {
+          const chunk = JSON.parse(payload);
+          const choice = chunk.choices?.[0]?.delta || {};
+          const delta = choice.content;
+          const reasoning = choice.reasoning_content;
+
+          if (reasoning) {
+            reportReasoning(reasoning);
+          }
+
+          if (!delta) continue;
+
+          reportReasoning(null);
+          fullText += delta;
+
+          editor.update(() => {
+            const root = $getRoot();
+            const parts = delta.split('\n');
+            for (let pi = 0; pi < parts.length; pi++) {
+              if (pi > 0) {
+                root.append($createParagraphNode());
+              }
+              const last = root.getLastChild();
+              if (!last || last.getType() !== 'paragraph') {
+                root.append($createParagraphNode());
+              }
+              if (parts[pi]) {
+                const tn = $createTextNode(parts[pi]);
+                tn.setStyle('color: #00D1B2');
+                root.getLastChild().append(tn);
+                tn.select();
+              }
+            }
+          });
+        } catch (e) {
+          // skip parse errors
+        }
+      }
+
+      if (streamDone) break;
+    }
+
+    report('Formatting...');
 
     if (fullText.trim()) {
-      applyMarkdownTransforms(editor, initialChildrenSize);
+      applyMarkdownTransforms(editor, startChildCount);
     }
   } catch (error) {
     console.error('Eve Error:', error);
