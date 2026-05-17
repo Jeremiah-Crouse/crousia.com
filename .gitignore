@@ -32,3 +32,4 @@ references
 # User uploads - don't track in git
 public/notes/
 uploads/
+eve-memory/

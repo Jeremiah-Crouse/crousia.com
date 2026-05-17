@@ -12,6 +12,7 @@ import multer from "multer";
 import { Jimp } from "jimp";
 import Stripe from "stripe";
 import archivesRouter from "./archives.js";
+import { createEve, createEveRouter } from "./eve.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -26,9 +27,10 @@ const COMMENTS_DIR = path.join(__dirname, 'comments');
 const PUBLIC_NOTES_DIR = path.join(__dirname, 'public', 'notes');
 const DIST_NOTES_DIR = path.join(__dirname, 'dist', 'notes');
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
+const EVE_MEMORY_DIR = process.env.EVE_MEMORY_DIR || path.join(__dirname, 'eve-memory');
 
 // Ensure all directories exist
-[ARCHIVES_DIR, COMMENTS_DIR, PUBLIC_NOTES_DIR, DIST_NOTES_DIR, UPLOADS_DIR].forEach(dir => {
+[ARCHIVES_DIR, COMMENTS_DIR, PUBLIC_NOTES_DIR, DIST_NOTES_DIR, UPLOADS_DIR, EVE_MEMORY_DIR].forEach(dir => {
   if (!fs.existsSync(dir)) {
     console.log(`📁 Creating directory: ${dir}`);
     fs.mkdirSync(dir, { recursive: true });
@@ -225,6 +227,11 @@ const provider = new WebsocketProvider(
   sharedDoc,
   { WebSocketPolyfill: WebSocket }
 );
+const eve = createEve({
+  sharedDoc,
+  rootDir: EVE_MEMORY_DIR,
+  archivesDir: ARCHIVES_DIR,
+});
 
 app.use(express.json());
 
@@ -615,6 +622,8 @@ app.post('/api/proxy/opencode', express.json(), async (req, res) => {
     res.status(502).json({ error: 'Failed to reach OpenCode API' });
   }
 });
+
+app.use('/api/eve', createEveRouter(eve));
 
 app.get('/api/comments/:date', (req, res) => {
   try {
