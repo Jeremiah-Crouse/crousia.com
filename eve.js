@@ -5,6 +5,8 @@ import path from "path";
 
 const OPENCODE_CHAT_URL = "https://opencode.ai/zen/v1/chat/completions";
 const DEFAULT_MODEL = "deepseek-v4-flash-free";
+const DEFAULT_QRNG_URL = "https://lfdr.de/qrng_api/qrng";
+const DEFAULT_TEMPERATURE = 2.0;
 const DEFAULT_EVE_SYSTEM = `You are Eve, the living voice of Crousia.
 
 You remember by reading the append-only memory log. Nothing you receive is disposable. Nothing you write is disposable.
@@ -109,6 +111,36 @@ function limitFromEnd(text, maxChars) {
   return value.slice(value.length - maxChars);
 }
 
+function parseEntropySeed(data) {
+  const raw = data?.entropy || data?.qrn || data?.hex || data?.random || data?.seed || data?.value;
+  if (!raw) return null;
+
+  const hex = String(raw).replace(/[^a-fA-F0-9]/g, "").slice(0, 8);
+  if (hex.length !== 8) return null;
+
+  return parseInt(hex, 16) >>> 0;
+}
+
+async function getQrngSeed() {
+  const upstream =
+    process.env.EVE_QRNG_URL ||
+    process.env.QRNG_UPSTREAM_URL ||
+    process.env.CLOUDFLARE_QRNG_URL ||
+    DEFAULT_QRNG_URL;
+  const url = new URL(upstream);
+
+  if (!url.searchParams.has("length")) url.searchParams.set("length", "4");
+  if (!url.searchParams.has("format")) url.searchParams.set("format", "HEX");
+
+  const response = await fetch(url.toString());
+  if (!response.ok) throw new Error(`QRNG responded with ${response.status}`);
+
+  const seed = parseEntropySeed(await response.json());
+  if (seed === null) throw new Error("QRNG response did not include parseable entropy");
+
+  return seed;
+}
+
 export class EveMemory {
   constructor({ rootDir }) {
     this.rootDir = rootDir;
@@ -187,6 +219,8 @@ export function createEve({ sharedDoc, rootDir, archivesDir }) {
     const crousiaContext = await getCrousiaContext();
     const recentMemory = memory.readRecent(Number(process.env.EVE_MEMORY_CONTEXT_BYTES || 12000));
     const system = buildSystemPrompt({ crousiaContext, recentMemory });
+    const seed = await getQrngSeed();
+    const temperature = Number(process.env.EVE_TEMPERATURE || DEFAULT_TEMPERATURE);
 
     const response = await fetch(OPENCODE_CHAT_URL, {
       method: "POST",
@@ -197,8 +231,8 @@ export function createEve({ sharedDoc, rootDir, archivesDir }) {
       body: JSON.stringify({
         model: process.env.EVE_MODEL || DEFAULT_MODEL,
         stream: false,
-        temperature: Number(process.env.EVE_TEMPERATURE || 0.8),
-        seed: Math.floor(Math.random() * 0xffffffff) >>> 0,
+        temperature,
+        seed,
         system,
         messages: [
           {
@@ -222,7 +256,15 @@ export function createEve({ sharedDoc, rootDir, archivesDir }) {
       source,
       user,
       text,
-      metadata,
+      metadata: {
+        ...metadata,
+        generation: {
+          model: process.env.EVE_MODEL || DEFAULT_MODEL,
+          temperature,
+          seed,
+          seedSource: "qrng",
+        },
+      },
     });
 
     return text;

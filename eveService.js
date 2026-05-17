@@ -2,6 +2,7 @@ import { $getRoot, $getSelection } from 'lexical';
 
 const QRNG_URL = import.meta.env.VITE_EVE_QRNG_URL || '/api/proxy/qrng?length=4&format=HEX';
 const OPENCODE_URL = import.meta.env.VITE_EVE_OPENCODE_URL || '/api/proxy/opencode';
+const EVE_TEMPERATURE = Number(import.meta.env.VITE_EVE_TEMPERATURE || 2.0);
 
 const TEXT_FORMAT_PATTERNS = [
   { regex: /(\*\*\*)(.+?)\1/, format: ['bold', 'italic'] },
@@ -130,6 +131,7 @@ export const eveGenerate = async (editor, awareness, onProgress, onReasoning) =>
         seed,
         model: 'deepseek-v4-flash-free',
         stream: true,
+        temperature: EVE_TEMPERATURE,
         system: systemPrompt,
         messages: [
           {
