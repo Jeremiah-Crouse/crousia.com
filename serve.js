@@ -625,6 +625,34 @@ app.post('/api/proxy/opencode', express.json(), async (req, res) => {
 
 app.use('/api/eve', createEveRouter(eve));
 
+// Eve memory endpoints for the browser editor
+app.get('/api/eve-memory', (req, res) => {
+  const maxBytes = Number(process.env.EVE_MEMORY_CONTEXT_BYTES || 12000);
+  const filePath = path.join(EVE_MEMORY_DIR, 'events.jsonl');
+  if (!fs.existsSync(filePath)) return res.json({ memory: '' });
+  const stat = fs.statSync(filePath);
+  const bytesToRead = Math.min(stat.size, maxBytes);
+  const buf = Buffer.alloc(bytesToRead);
+  const fd = fs.openSync(filePath, 'r');
+  fs.readSync(fd, buf, 0, bytesToRead, stat.size - bytesToRead);
+  fs.closeSync(fd);
+  res.json({ memory: buf.toString('utf8').replace(/^[^\n]*\n/, '') });
+});
+
+app.post('/api/eve-memory', express.json(), (req, res) => {
+  const { type, data } = req.body || {};
+  if (!type || !data) return res.status(400).json({ error: 'type and data required' });
+  const entry = {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+    timestamp: new Date().toISOString(),
+    type,
+    data,
+  };
+  const filePath = path.join(EVE_MEMORY_DIR, 'events.jsonl');
+  fs.appendFileSync(filePath, `${JSON.stringify(entry)}\n`);
+  res.json({ ok: true });
+});
+
 app.get('/api/comments/:date', (req, res) => {
   try {
     const { date } = req.params;

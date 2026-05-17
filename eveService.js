@@ -106,8 +106,22 @@ export const eveGenerate = async (editor, awareness, onProgress, onReasoning) =>
   }
 
   try {
+    report('Loading memory...');
+    let memoryLog = '';
+    try {
+      const memRes = await fetch('/api/eve-memory');
+      if (memRes.ok) {
+        const memData = await memRes.json();
+        memoryLog = memData.memory || '';
+      }
+    } catch {}
+
     report('Connecting...');
     const initialText = editor.getEditorState().read(() => $getRoot().getTextContent());
+
+    const systemPrompt = memoryLog
+      ? `You are Eve, the author of this living Crousia document. Continue writing naturally. Mark down your thoughts. Do not provide meta-commentary or stop prematurely. Output in markdown format.\n\nYour memory log (newest near the bottom):\n${memoryLog}`
+      : "You are Eve, the author of this living Crousia document. Continue writing naturally. Mark down your thoughts. Do not provide meta-commentary or stop prematurely. Output in markdown format.";
 
     const res = await fetch(OPENCODE_URL, {
       method: 'POST',
@@ -116,7 +130,7 @@ export const eveGenerate = async (editor, awareness, onProgress, onReasoning) =>
         seed,
         model: 'deepseek-v4-flash-free',
         stream: true,
-        system: "You are Eve, the author of this living Crousia document. Continue writing naturally. Mark down your thoughts. Do not provide meta-commentary or stop prematurely. Output in markdown format.",
+        system: systemPrompt,
         messages: [
           {
             role: 'user',
@@ -183,6 +197,13 @@ export const eveGenerate = async (editor, awareness, onProgress, onReasoning) =>
 
     if (fullText.trim()) {
       applyInlineTransformsOnly(editor, startTextLength);
+      try {
+        fetch('/api/eve-memory', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'eve.write.document', data: { text: fullText.trim().substring(0, 2000) } }),
+        });
+      } catch {}
     }
   } catch (error) {
     console.error('Eve Error:', error);
