@@ -275,15 +275,12 @@ export function createEve({ sharedDoc, rootDir, archivesDir }) {
 
 async function sendTelegramMessage({ token, chatId, text, replyToMessageId }) {
   const telegramText = String(text || "").slice(0, 3900);
+  const body = { chat_id: chatId, text: telegramText };
+  if (replyToMessageId) body.reply_to_message_id = replyToMessageId;
   const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      chat_id: chatId,
-      text: telegramText,
-      reply_to_message_id: replyToMessageId,
-      allow_sending_without_reply: true,
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {
@@ -325,7 +322,6 @@ export function createEveRouter(eve) {
     if (!buffer || buffer.messages.length === 0 || buffer.responding) return;
 
     buffer.responding = true;
-    groupBuffers.delete(chatId);
 
     const transcript = formatTelegramBatch(buffer.messages);
     const input = `A Telegram group chat has gone quiet for ${Math.round(groupLullMs / 1000)} seconds. Respond once to everything Eve has read since her last message in this chat.\n\n${transcript}`;
@@ -354,7 +350,6 @@ export function createEveRouter(eve) {
         token,
         chatId,
         text: reply,
-        replyToMessageId: buffer.lastMessageId,
       });
 
       eve.memory.append("telegram.sent_message", {
@@ -372,6 +367,8 @@ export function createEveRouter(eve) {
         messageIds: buffer.messages.map((item) => item.messageId),
       });
       console.error("Eve Telegram Group Error:", error);
+    } finally {
+      groupBuffers.delete(chatId);
     }
   }
 
@@ -429,6 +426,16 @@ export function createEveRouter(eve) {
 
     if (isGroupChat(message)) {
       const existing = groupBuffers.get(chatId);
+
+      if (existing?.responding) {
+        eve.memory.append("telegram.group_dropped_message", {
+          chatId,
+          messageId: message.message_id,
+          reason: "responding",
+        });
+        return res.json({ ok: true, dropped: true, reason: "responding" });
+      }
+
       if (existing?.timer) clearTimeout(existing.timer);
 
       const nextBuffer = existing || {
