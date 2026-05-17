@@ -24,6 +24,7 @@ import {
 } from "../utils/collaboration";
 import { UserContext } from "../context/UserContext";
 import { EveButton } from "./EveButton";
+import { SummarizeButton } from "./SummarizeButton";
 
 import {
   $getSelection,
@@ -229,8 +230,9 @@ export default function Editor({ onH2Found }) {
         <HistoryPlugin />
         <AutoSavePlugin />
         {!readonly && (
-          <div className="toolbar" style={{ borderBottom: 'none', marginBottom: 0 }}>
+          <div className="toolbar" style={{ borderBottom: 'none', marginBottom: 0, display: 'flex', alignItems: 'center' }}>
             <EveButton yText={yText} awareness={awareness} />
+            <SummarizeButton />
           </div>
         )}
         <ImagePlugin isAdmin={!readonly} username={username} />

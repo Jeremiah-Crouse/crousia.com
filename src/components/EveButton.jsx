@@ -57,7 +57,7 @@ export function EveButton({ yText, awareness }) {
       }}
     >
       {showMarquee ? (
-        <marquee style={{ color: '#666' }}>{reasoning}</marquee>
+        <marquee scrollamount={12} style={{ color: '#666' }}>{reasoning}</marquee>
       ) : (
         <span style={{ color: isGenerating ? '#aaa' : '#000' }}>{status || 'Summon Eve'}</span>
       )}

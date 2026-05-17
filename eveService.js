@@ -1,6 +1,4 @@
-import { $getRoot, $getSelection, $isParagraphNode, $isTextNode, $createParagraphNode, $createTextNode } from 'lexical';
-import { $createHeadingNode, $createQuoteNode } from '@lexical/rich-text';
-import { $createHorizontalRuleNode } from '@lexical/react/LexicalHorizontalRuleNode';
+import { $getRoot, $getSelection } from 'lexical';
 
 const QRNG_URL = import.meta.env.VITE_EVE_QRNG_URL || '/api/proxy/qrng?length=4&format=HEX';
 const OPENCODE_URL = import.meta.env.VITE_EVE_OPENCODE_URL || '/api/proxy/opencode';
@@ -50,62 +48,27 @@ function applyInlineTransformers(textNode) {
   }
 }
 
-function applyBlockTransformers(element) {
-  if (!$isParagraphNode(element)) return element;
-
-  const text = element.getTextContent();
-  const headingMatch = text.match(/^(#{1,6})\s/);
-  if (headingMatch) {
-    const level = headingMatch[1].length;
-    const newElement = $createHeadingNode(`h${level}`);
-    const firstChild = element.getFirstChild();
-    if ($isTextNode(firstChild)) {
-      firstChild.setTextContent(text.slice(headingMatch[0].length));
-    }
-    newElement.append(...element.getChildren());
-    element.replace(newElement);
-    return newElement;
-  }
-
-  if (text.startsWith('> ')) {
-    const newElement = $createQuoteNode();
-    const firstChild = element.getFirstChild();
-    if ($isTextNode(firstChild)) {
-      firstChild.setTextContent(text.slice(2));
-    }
-    newElement.append(...element.getChildren());
-    element.replace(newElement);
-    return newElement;
-  }
-
-  if (text.trim() === '---') {
-    const hr = $createHorizontalRuleNode();
-    element.replace(hr);
-    return hr;
-  }
-
-  return element;
-}
-
-function applyMarkdownTransforms(editor, initialChildrenSize) {
+function applyInlineTransformsOnly(editor, startTextLength) {
   editor.update(() => {
     const root = $getRoot();
     const children = root.getChildren();
-    for (let i = initialChildrenSize; i < children.length; i++) {
+    let covered = 0;
+    for (let i = children.length - 1; i >= 0; i--) {
       const child = children[i];
       if (!child || !child.isAttached()) continue;
-      const transformedChild = applyBlockTransformers(child);
-      const textNodes = transformedChild.getAllTextNodes ? transformedChild.getAllTextNodes() : [];
+      const textNodes = child.getAllTextNodes ? child.getAllTextNodes() : [];
       for (const tn of textNodes) {
         applyInlineTransformers(tn);
       }
+      covered += child.getTextContentSize();
+      if (covered >= startTextLength) break;
     }
   });
 }
 
 export const eveGenerate = async (editor, awareness, onProgress, onReasoning) => {
   let fullText = "";
-  const originalUser = awareness.getLocalState()?.user;
+  const originalUser = awareness.getLocalState()?.user || {};
   const report = onProgress || (() => {});
   const reportReasoning = onReasoning || (() => {});
 
@@ -115,9 +78,9 @@ export const eveGenerate = async (editor, awareness, onProgress, onReasoning) =>
     color: '#00D1B2',
   });
 
-  let startChildCount = 0;
+  let startTextLength = 0;
   editor.getEditorState().read(() => {
-    startChildCount = $getRoot().getChildrenSize();
+    startTextLength = $getRoot().getTextContent().length;
   });
 
   let seed = null;
@@ -204,24 +167,10 @@ export const eveGenerate = async (editor, awareness, onProgress, onReasoning) =>
           fullText += delta;
 
           editor.update(() => {
-            const root = $getRoot();
-            const parts = delta.split('\n');
-            for (let pi = 0; pi < parts.length; pi++) {
-              if (pi > 0) {
-                root.append($createParagraphNode());
-              }
-              const last = root.getLastChild();
-              if (!last || last.getType() !== 'paragraph') {
-                root.append($createParagraphNode());
-              }
-              if (parts[pi]) {
-                const tn = $createTextNode(parts[pi]);
-                tn.setStyle('color: #00D1B2');
-                root.getLastChild().append(tn);
-                tn.select();
-              }
-            }
-          });
+            const selection = $getSelection() || $getRoot().selectEnd();
+            selection.style = 'color: #00D1B2';
+            selection.insertText(delta);
+          }, { tag: 'proto-eve' });
         } catch (e) {
           // skip parse errors
         }
@@ -233,7 +182,7 @@ export const eveGenerate = async (editor, awareness, onProgress, onReasoning) =>
     report('Formatting...');
 
     if (fullText.trim()) {
-      applyMarkdownTransforms(editor, startChildCount);
+      applyInlineTransformsOnly(editor, startTextLength);
     }
   } catch (error) {
     console.error('Eve Error:', error);

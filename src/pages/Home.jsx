@@ -60,14 +60,12 @@ export default function Home() {
         const h2 = h2s[i];
         const h2Rect = h2.getBoundingClientRect();
         
-        // Check if this heading is visible in the editor (in viewport)
         if (h2Rect.top >= editorRect.top && h2Rect.top < editorRect.top + 100) {
           if (activeHeading !== i) setActiveHeading(i);
           return;
         }
       }
       
-      // Also check if we've scrolled past all headings
       for (let i = 0; i < h2s.length - 1; i++) {
         const h2 = h2s[i];
         const nextH2 = h2s[i + 1];
