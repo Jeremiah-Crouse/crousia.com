@@ -254,12 +254,91 @@ async function sendTelegramMessage({ token, chatId, text, replyToMessageId }) {
 
 export function createEveRouter(eve) {
   const router = express.Router();
+  const groupBuffers = new Map();
+  const groupLullMs = Number(process.env.EVE_TELEGRAM_GROUP_LULL_MS || 10000);
+
+  function isGroupChat(message) {
+    return message?.chat?.type === "group" || message?.chat?.type === "supergroup";
+  }
+
+  function describeTelegramUser(user) {
+    if (!user) return "Unknown";
+    const name = [user.firstName, user.lastName].filter(Boolean).join(" ").trim();
+    const handle = user.username ? `@${user.username}` : "";
+    const bot = user.isBot ? " [bot]" : "";
+    return `${name || handle || user.id || "Unknown"}${handle && name ? ` (${handle})` : ""}${bot}`;
+  }
+
+  function formatTelegramBatch(messages) {
+    return messages
+      .map((item) => {
+        const author = describeTelegramUser(item.user);
+        return `[${item.timestamp}] ${author}: ${item.text}`;
+      })
+      .join("\n");
+  }
+
+  async function flushGroupBuffer(chatId, token) {
+    const buffer = groupBuffers.get(chatId);
+    if (!buffer || buffer.messages.length === 0 || buffer.responding) return;
+
+    buffer.responding = true;
+    groupBuffers.delete(chatId);
+
+    const transcript = formatTelegramBatch(buffer.messages);
+    const input = `A Telegram group chat has gone quiet for ${Math.round(groupLullMs / 1000)} seconds. Respond once to everything Eve has read since her last message in this chat.\n\n${transcript}`;
+
+    try {
+      const reply = await eve.generateReply({
+        source: "telegram.group",
+        user: {
+          chatId,
+          chatType: buffer.chatType,
+          chatTitle: buffer.chatTitle,
+        },
+        input,
+        metadata: {
+          chatId,
+          chatType: buffer.chatType,
+          chatTitle: buffer.chatTitle,
+          messageIds: buffer.messages.map((item) => item.messageId),
+          updateIds: buffer.messages.map((item) => item.updateId),
+          batchSize: buffer.messages.length,
+          lullMs: groupLullMs,
+        },
+      });
+
+      const sent = await sendTelegramMessage({
+        token,
+        chatId,
+        text: reply,
+        replyToMessageId: buffer.lastMessageId,
+      });
+
+      eve.memory.append("telegram.sent_message", {
+        chatId,
+        chatType: buffer.chatType,
+        responseMessageId: sent?.result?.message_id,
+        text: reply,
+        respondingToMessageIds: buffer.messages.map((item) => item.messageId),
+      });
+    } catch (error) {
+      eve.memory.append("eve.error", {
+        source: "telegram.group",
+        message: error.message,
+        chatId,
+        messageIds: buffer.messages.map((item) => item.messageId),
+      });
+      console.error("Eve Telegram Group Error:", error);
+    }
+  }
 
   router.get("/health", (req, res) => {
     res.json({
       ok: true,
       memory: eve.memory.eventsPath,
       hasSystemPrompt: fs.existsSync(eve.memory.systemPromptPath),
+      groupLullMs,
     });
   });
 
@@ -289,12 +368,57 @@ export function createEveRouter(eve) {
       username: from.username,
       firstName: from.first_name,
       lastName: from.last_name,
+      isBot: Boolean(from.is_bot),
       chatId,
     };
 
+    const telegramMemory = {
+      updateId: update.update_id,
+      messageId: message.message_id,
+      chatId,
+      chatType: message.chat?.type,
+      chatTitle: message.chat?.title,
+      user,
+      text: text.trim(),
+      date: message.date,
+    };
+
+    eve.memory.append("telegram.read_message", telegramMemory);
+
+    if (isGroupChat(message)) {
+      const existing = groupBuffers.get(chatId);
+      if (existing?.timer) clearTimeout(existing.timer);
+
+      const nextBuffer = existing || {
+        messages: [],
+        chatType: message.chat?.type,
+        chatTitle: message.chat?.title,
+        responding: false,
+      };
+
+      nextBuffer.messages.push({
+        ...telegramMemory,
+        timestamp: new Date((message.date || Math.floor(Date.now() / 1000)) * 1000).toISOString(),
+      });
+      nextBuffer.lastMessageId = message.message_id;
+      nextBuffer.timer = setTimeout(() => {
+        flushGroupBuffer(chatId, token);
+      }, groupLullMs);
+
+      groupBuffers.set(chatId, nextBuffer);
+      eve.memory.append("telegram.group_buffered_message", {
+        chatId,
+        messageId: message.message_id,
+        bufferedMessages: nextBuffer.messages.length,
+        lullMs: groupLullMs,
+      });
+
+      return res.json({ ok: true, buffered: true, lullMs: groupLullMs });
+    }
+
     try {
       const reply = await eve.generateReply({
-        source: "telegram",
+        source: "telegram.private",
         user,
         input: text.trim(),
         metadata: {
