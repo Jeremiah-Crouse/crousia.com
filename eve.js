@@ -150,22 +150,30 @@ export function formatMemoryEntry(entry) {
       const d = entry.data || {};
       const user = d.user || {};
       const name = user.firstName || user.name || user.username || 'someone';
-      const tag = d.source && d.source.includes('telegram') ? ' (Telegram)' : '';
-      return `[${ts}] ${name}${tag}: ${d.text || ''}`;
+      let context = '';
+      if (d.source === 'telegram.group') context = ` (in Group "${user.chatTitle || '?'}")`;
+      else if (d.source === 'telegram.private') context = ' (Private Telegram)';
+      else if (d.source === 'api') context = ' (API)';
+      return `[${ts}] ${name}${context}: ${d.text || ''}`;
     }
     case 'eve.write.message': {
       const d = entry.data || {};
-      const tag = d.source && d.source.includes('telegram') ? 'on Telegram' : 'to the document';
-      return `[${ts}] Eve replied ${tag}: ${(d.text || '').slice(0, 500)}`;
+      let context = 'to the document';
+      if (d.source === 'telegram.group') context = `to Group "${d.user?.chatTitle || '?'}"`;
+      else if (d.source === 'telegram.private') context = 'in Private Telegram';
+      return `[${ts}] Eve replied ${context}: ${(d.text || '').slice(0, 500)}`;
     }
     case 'telegram.read_message': {
       const d = entry.data || {};
       const user = d.user || {};
       const name = user.firstName || user.username || 'someone';
-      return `[${ts}] ${name} (Telegram): ${d.text || ''}`;
+      const context = d.chatType === 'private' ? ' (Private)' : ` (in Group "${d.chatTitle || '?'}")`;
+      return `[${ts}] ${name}${context}: ${d.text || ''}`;
     }
     case 'telegram.sent_message': {
-      return `[${ts}] Eve wrote on Telegram: ${(entry.data?.text || '').slice(0, 500)}`;
+      const d = entry.data || {};
+      const context = d.chatType === 'private' ? ' (Private)' : ` (in Group "${d.chatTitle || '?'}")`;
+      return `[${ts}] Eve wrote on Telegram${context}: ${(d.text || '').slice(0, 500)}`;
     }
     case 'eve.write.document': {
       return `[${ts}] Eve wrote to the document: ${(entry.data?.text || '').slice(0, 500)}`;
@@ -435,6 +443,7 @@ export function createEveRouter(eve) {
       eve.memory.append("telegram.sent_message", {
         chatId,
         chatType: buffer.chatType,
+        chatTitle: buffer.chatTitle,
         responseMessageId: sent?.result?.message_id,
         text: reply,
         respondingToMessageIds: buffer.messages.map((item) => item.messageId),
@@ -574,6 +583,7 @@ export function createEveRouter(eve) {
 
       eve.memory.append("telegram.sent_message", {
         chatId,
+        chatType: 'private',
         responseMessageId: sent?.result?.message_id,
         text: reply,
       });
