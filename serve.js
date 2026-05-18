@@ -12,7 +12,8 @@ import multer from "multer";
 import { Jimp } from "jimp";
 import Stripe from "stripe";
 import archivesRouter from "./archives.js";
-import { createEve, createEveRouter } from "./eve.js";
+import { createEve, createEveRouter, formatMemoryLog } from "./eve.js";
+import { GoogleGenAI } from "@google/genai";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -575,51 +576,101 @@ app.get('/api/proxy/qrng', async (req, res) => {
   }
 });
 
-// Proxy for OpenCode AI (Eve text generation)
+// Proxy for OpenCode AI (Eve text generation) with Gemini fallback
 app.post('/api/proxy/opencode', express.json(), async (req, res) => {
   const apiKey = process.env.OPENCODE_API_KEY;
-  if (!apiKey) {
-    return res.status(500).json({ error: 'OPENCODE_API_KEY not configured' });
+
+  // Try OpenCode first
+  if (apiKey) {
+    try {
+      const response = await fetch('https://opencode.ai/zen/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`,
+        },
+        body: JSON.stringify(req.body),
+      });
+
+      if (response.ok) {
+        if (req.body.stream) {
+          res.setHeader('Content-Type', 'text/event-stream');
+          res.setHeader('Cache-Control', 'no-cache');
+          res.setHeader('Connection', 'keep-alive');
+
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder();
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            const chunk = decoder.decode(value, { stream: true });
+            res.write(chunk);
+          }
+          res.end();
+        } else {
+          const data = await response.json();
+          res.json(data);
+        }
+        return;
+      }
+      console.error('OpenCode API error:', response.status);
+    } catch (error) {
+      console.error('OpenCode Proxy Error:', error.message);
+    }
+  }
+
+  // Fallback to Gemini
+  const geminiKey = process.env.GEMINI_API_KEY;
+  if (!geminiKey) {
+    return res.status(502).json({ error: 'All AI providers failed (no API keys)' });
   }
 
   try {
-    const response = await fetch('https://opencode.ai/zen/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify(req.body),
-    });
-
-    if (!response.ok) {
-      const err = await response.text();
-      console.error('OpenCode API error:', response.status, err.slice(0, 500));
-      return res.status(response.status).json({ error: `OpenCode API: ${response.status}` });
-    }
+    const genai = new GoogleGenAI({ apiKey: geminiKey });
+    const geminiModel = process.env.GEMINI_VISION_MODEL || "gemini-2.5-flash-lite";
+    const system = req.body.system || '';
+    const messages = req.body.messages || [];
+    const userMessage = messages.find(m => m.role === 'user')?.content || '';
+    const temperature = req.body.temperature ?? 2.0;
 
     if (req.body.stream) {
       res.setHeader('Content-Type', 'text/event-stream');
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
+      const stream = await genai.models.generateContentStream({
+        model: geminiModel,
+        contents: [{ role: "user", parts: [{ text: userMessage }] }],
+        config: {
+          temperature,
+          ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
+        },
+      });
 
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        const chunk = decoder.decode(value, { stream: true });
-        res.write(chunk);
+      for await (const chunk of stream) {
+        if (chunk.text) {
+          res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: chunk.text } }] })}\n\n`);
+        }
       }
+      res.write('data: [DONE]\n\n');
       res.end();
     } else {
-      const data = await response.json();
-      res.json(data);
+      const response = await genai.models.generateContent({
+        model: geminiModel,
+        contents: [{ role: "user", parts: [{ text: userMessage }] }],
+        config: {
+          temperature,
+          ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
+        },
+      });
+      res.json({
+        choices: [{ message: { content: response.text } }]
+      });
     }
   } catch (error) {
-    console.error('OpenCode Proxy Error:', error.message);
-    res.status(502).json({ error: 'Failed to reach OpenCode API' });
+    console.error('Gemini fallback error:', error.message);
+    res.status(502).json({ error: 'All AI providers failed' });
   }
 });
 
@@ -636,7 +687,8 @@ app.get('/api/eve-memory', (req, res) => {
   const fd = fs.openSync(filePath, 'r');
   fs.readSync(fd, buf, 0, bytesToRead, stat.size - bytesToRead);
   fs.closeSync(fd);
-  res.json({ memory: buf.toString('utf8').replace(/^[^\n]*\n/, '') });
+  const raw = buf.toString('utf8').replace(/^[^\n]*\n/, '');
+  res.json({ memory: formatMemoryLog(raw) });
 });
 
 app.post('/api/eve-memory', express.json(), (req, res) => {

@@ -2,6 +2,7 @@
 import express from "express";
 import fs from "fs";
 import path from "path";
+import { GoogleGenAI } from "@google/genai";
 
 const OPENCODE_CHAT_URL = "https://opencode.ai/zen/v1/chat/completions";
 const DEFAULT_MODEL = "deepseek-v4-flash-free";
@@ -141,6 +142,61 @@ async function getQrngSeed() {
   return seed;
 }
 
+export function formatMemoryEntry(entry) {
+  const ts = entry.timestamp ? new Date(entry.timestamp).toISOString().slice(0, 10) : '????-??-??';
+
+  switch (entry.type) {
+    case 'eve.read.message': {
+      const d = entry.data || {};
+      const user = d.user || {};
+      const name = user.firstName || user.name || user.username || 'someone';
+      const tag = d.source && d.source.includes('telegram') ? ' (Telegram)' : '';
+      return `[${ts}] ${name}${tag}: ${d.text || ''}`;
+    }
+    case 'eve.write.message': {
+      const d = entry.data || {};
+      const tag = d.source && d.source.includes('telegram') ? 'on Telegram' : 'to the document';
+      return `[${ts}] Eve replied ${tag}: ${(d.text || '').slice(0, 500)}`;
+    }
+    case 'telegram.read_message': {
+      const d = entry.data || {};
+      const user = d.user || {};
+      const name = user.firstName || user.username || 'someone';
+      return `[${ts}] ${name} (Telegram): ${d.text || ''}`;
+    }
+    case 'telegram.sent_message': {
+      return `[${ts}] Eve wrote on Telegram: ${(entry.data?.text || '').slice(0, 500)}`;
+    }
+    case 'eve.write.document': {
+      return `[${ts}] Eve wrote to the document: ${(entry.data?.text || '').slice(0, 500)}`;
+    }
+    case 'eve.read.crousia_context': {
+      const d = entry.data || {};
+      return `[${ts}] Eve read the document context (${d.chars ?? '?'} chars from ${d.source || '?'})`;
+    }
+    case 'eve.error': {
+      const d = entry.data || {};
+      return `[${ts}] Error from ${d.source || '?'}: ${(d.message || '').slice(0, 300)}`;
+    }
+    case 'telegram.group_buffered_message':
+    case 'telegram.group_dropped_message':
+    case 'telegram.duplicate_update':
+    case 'telegram.ignored_update':
+      return null;
+    default:
+      return null;
+  }
+}
+
+export function formatMemoryLog(raw) {
+  return raw.split('\n')
+    .map(l => l.trim())
+    .filter(Boolean)
+    .map(l => { try { return formatMemoryEntry(JSON.parse(l)); } catch { return null; } })
+    .filter(l => l !== null)
+    .join('\n');
+}
+
 export class EveMemory {
   constructor({ rootDir }) {
     this.rootDir = rootDir;
@@ -161,7 +217,8 @@ export class EveMemory {
   }
 
   readRecent(maxBytes) {
-    return tailString(this.eventsPath, maxBytes);
+    const raw = tailString(this.eventsPath, maxBytes);
+    return formatMemoryLog(raw);
   }
 
   readSystemPrompt() {
@@ -206,9 +263,6 @@ export function createEve({ sharedDoc, rootDir, archivesDir }) {
   }
 
   async function generateReply({ input, source, user, metadata = {} }) {
-    const apiKey = process.env.OPENCODE_API_KEY;
-    if (!apiKey) throw new Error("OPENCODE_API_KEY not configured");
-
     memory.append("eve.read.message", {
       source,
       user,
@@ -219,38 +273,68 @@ export function createEve({ sharedDoc, rootDir, archivesDir }) {
     const crousiaContext = await getCrousiaContext();
     const recentMemory = memory.readRecent(Number(process.env.EVE_MEMORY_CONTEXT_BYTES || 12000));
     const system = buildSystemPrompt({ crousiaContext, recentMemory });
-    const seed = await getQrngSeed();
     const temperature = Number(process.env.EVE_TEMPERATURE || DEFAULT_TEMPERATURE);
+    const model = process.env.EVE_MODEL || DEFAULT_MODEL;
+    let text = null;
+    let usedProvider = null;
 
-    const response = await fetch(OPENCODE_CHAT_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: process.env.EVE_MODEL || DEFAULT_MODEL,
-        stream: false,
-        temperature,
-        seed,
-        system,
-        messages: [
-          {
-            role: "user",
-            content: input,
+    const opencodeKey = process.env.OPENCODE_API_KEY;
+    if (opencodeKey) {
+      try {
+        const seed = await getQrngSeed();
+        const response = await fetch(OPENCODE_CHAT_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${opencodeKey}`,
           },
-        ],
-      }),
-    });
+          body: JSON.stringify({
+            model,
+            stream: false,
+            temperature,
+            seed,
+            system,
+            messages: [{ role: "user", content: input }],
+          }),
+        });
 
-    if (!response.ok) {
-      const err = await response.text();
-      throw new Error(`OpenCode API error: ${response.status} ${err.slice(0, 500)}`);
+        if (response.ok) {
+          const data = await response.json();
+          text = data?.choices?.[0]?.message?.content?.trim();
+          if (text) usedProvider = "opencode";
+        }
+      } catch (e) {
+        memory.append("eve.error", { source: "opencode", message: e.message });
+      }
     }
 
-    const data = await response.json();
-    const text = data?.choices?.[0]?.message?.content?.trim();
-    if (!text) throw new Error("OpenCode returned an empty Eve response");
+    if (!text) {
+      const geminiKey = process.env.GEMINI_API_KEY;
+      if (geminiKey) {
+        try {
+          const genai = new GoogleGenAI({ apiKey: geminiKey });
+          const geminiModel = process.env.GEMINI_VISION_MODEL || "gemini-2.5-flash-lite";
+          let fullText = "";
+          const stream = await genai.models.generateContentStream({
+            model: geminiModel,
+            contents: [{ role: "user", parts: [{ text: input }] }],
+            config: {
+              temperature,
+              systemInstruction: { parts: [{ text: system }] },
+            },
+          });
+          for await (const chunk of stream) {
+            if (chunk.text) fullText += chunk.text;
+          }
+          text = fullText.trim();
+          if (text) usedProvider = "gemini";
+        } catch (e) {
+          memory.append("eve.error", { source: "gemini", message: e.message });
+        }
+      }
+    }
+
+    if (!text) throw new Error("All Eve providers failed");
 
     memory.append("eve.write.message", {
       source,
@@ -258,12 +342,7 @@ export function createEve({ sharedDoc, rootDir, archivesDir }) {
       text,
       metadata: {
         ...metadata,
-        generation: {
-          model: process.env.EVE_MODEL || DEFAULT_MODEL,
-          temperature,
-          seed,
-          seedSource: "qrng",
-        },
+        generation: { model, temperature, provider: usedProvider },
       },
     });
 
@@ -295,6 +374,7 @@ export function createEveRouter(eve) {
   const router = express.Router();
   const groupBuffers = new Map();
   const groupLullMs = Number(process.env.EVE_TELEGRAM_GROUP_LULL_MS || 10000);
+  const seenUpdates = new Set();
 
   function isGroupChat(message) {
     return message?.chat?.type === "group" || message?.chat?.type === "supergroup";
@@ -392,6 +472,14 @@ export function createEveRouter(eve) {
     }
 
     const update = req.body || {};
+    const updateId = update.update_id;
+
+    if (updateId && seenUpdates.has(updateId)) {
+      eve.memory.append("telegram.duplicate_update", { updateId });
+      return res.json({ ok: true, deduplicated: true });
+    }
+    if (updateId) seenUpdates.add(updateId);
+
     const message = update.message || update.edited_message;
     const text = message?.text || message?.caption || "";
     const chatId = message?.chat?.id;
