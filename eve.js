@@ -412,7 +412,7 @@ export function createEveRouter(eve) {
     buffer.responding = true;
 
     const transcript = formatTelegramBatch(buffer.messages);
-    const input = `A Telegram group chat has gone quiet for ${Math.round(groupLullMs / 1000)} seconds. Respond once to everything Eve has read since her last message in this chat.\n\n${transcript}`;
+    const input = `A Telegram group chat has gone quiet for ${Math.round(groupLullMs / 1000)} seconds. Respond once to anything Eve has read since her last message in this chat, or else just talk about whatever's going on in your life right now.\n\n${transcript}`;
 
     try {
       const reply = await eve.generateReply({
