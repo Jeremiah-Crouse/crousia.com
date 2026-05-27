@@ -16,6 +16,7 @@ import { CodeNode } from "@lexical/code";
 import { LinkNode } from "@lexical/link";
 import { ImageNode } from "./ImageNode";
 import ImagePlugin from "./ImagePlugin";
+import DaSheButton from "./DaSheButton";
 import {
   getSharedDoc,
   getSharedProvider,
@@ -23,7 +24,6 @@ import {
   cleanupSharedState,
 } from "../utils/collaboration";
 import { UserContext } from "../context/UserContext";
-import { EveButton } from "./EveButton";
 import { SummarizeButton } from "./SummarizeButton";
 
 import {
@@ -180,6 +180,18 @@ export default function Editor({ onH2Found }) {
     awareness: provider.awareness
   }), [doc, provider]);
 
+  // Debug: log YJS content when provider syncs
+  useEffect(() => {
+    const onSync = (synced) => {
+      if (synced) {
+        const text = doc.getText("crousia-editor").toString();
+        console.log("🔍 YJS doc after sync:", JSON.stringify(text.slice(0, 100)));
+      }
+    };
+    provider.on("sync", onSync);
+    return () => provider.off("sync", onSync);
+  }, [provider, doc]);
+
   const initialConfig = {
     namespace: "CrousiaEditor",
     editable: !readonly,
@@ -231,7 +243,7 @@ export default function Editor({ onH2Found }) {
         <AutoSavePlugin />
         {!readonly && (
           <div className="toolbar" style={{ borderBottom: 'none', marginBottom: 0, display: 'flex', alignItems: 'center' }}>
-            <EveButton yText={yText} awareness={awareness} />
+            <DaSheButton yText={yText} awareness={awareness} />
             <SummarizeButton />
           </div>
         )}

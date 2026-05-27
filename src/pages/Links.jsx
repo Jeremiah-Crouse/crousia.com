@@ -2,7 +2,8 @@ import React from 'react';
 import CrousianText from '../components/CrousianText';
 
 const linkItems = [
-  { name: 'shadow', url: 'https://shadow.crousia.com' },
+  { name: 'Cristio (Kingdom)', url: 'https://cristio.ru' },
+  { name: 'Alphacoin (Old World)', url: 'https://alphacoin.uk' },
 ];
 
 export default function Links() {
@@ -27,4 +28,3 @@ export default function Links() {
     </div>
   );
 }
-

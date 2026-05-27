@@ -4,6 +4,7 @@ const TEXTURE_MAP = {
   gold: '/textures/gold.gif',
   green: '/textures/green.gif',
   purple: '/textures/purple.gif',
+  sun: '/sun.gif',
 };
 
 const TEXTURE_SIZE = 26;  // tile size for notes
@@ -46,12 +47,10 @@ function getTextureVariant(char, variant) {
   if (variant) {
     return variant;
   }
-
   if (char === '🐍') {
     return 'green';
   }
-
-  return 'gold';
+  return 'sun';
 }
 
 export default function TexturedCrousianText({
@@ -104,7 +103,7 @@ export default function TexturedCrousianText({
           direction: hasHebrew ? 'rtl' : 'ltr',
           unicodeBidi: 'embed',
           fontFamily: "'Cormorant Garamond', serif",
-          fontWeight: 600,
+          fontWeight: 900,
           fontSize,
           lineHeight: 0.9,
           letterSpacing: nav || logo ? '-0.05em' : '0.03em',
@@ -116,7 +115,8 @@ export default function TexturedCrousianText({
             return <span key={`space-${index}`}>{char}</span>;
           }
 
-          const texture = TEXTURE_MAP[getTextureVariant(char, variant)] || TEXTURE_MAP.gold;
+          const texture = TEXTURE_MAP[getTextureVariant(char, variant)] || TEXTURE_MAP.sun;
+          const isSun = texture === TEXTURE_MAP.sun;
           
           // Use pre-generated random offset for this character
           const offsetFrame = offsets[index];
@@ -129,17 +129,17 @@ export default function TexturedCrousianText({
               style={{
                 display: 'inline-block',
                 backgroundImage: `url(${texture})`,
-                backgroundRepeat: 'repeat',
-backgroundSize: `${TEXTURE_SIZE * FRAMES}px ${TEXTURE_SIZE}px`,
-                 backgroundPosition: `-${offsetFrame * TEXTURE_SIZE}px 0`,
-                animation: `frame-anim ${1.44}s steps(${FRAMES}) infinite`,
-                animationDelay: `${delay}s`,
-                WebkitBackgroundClip: 'text',
+                backgroundRepeat: isSun ? 'no-repeat' : 'repeat',
+                backgroundSize: isSun ? 'cover' : `${TEXTURE_SIZE * FRAMES}px ${TEXTURE_SIZE}px`,
+                backgroundPosition: isSun ? `${(index / chars.length) * 100}% 50%` : `-${offsetFrame * TEXTURE_SIZE}px 0`,
                 backgroundClip: 'text',
+                WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 color: 'transparent',
                 WebkitTextStroke: '0.018em rgba(0, 0, 0, 0.55)',
-                textShadow: '0 0 0.04em rgba(255, 255, 255, 0.08)',
+                textShadow: isSun
+                  ? '0 0 0.3em rgba(255, 200, 100, 0.4), 0 0 0.6em rgba(255, 200, 100, 0.2), 0 0 1em rgba(255, 200, 100, 0.1)'
+                  : '0 0 0.04em rgba(255, 255, 255, 0.08)',
                 transform: char === '🐍' ? 'scaleX(-1)' : 'none',
               }}
             >

@@ -6,7 +6,7 @@
   position: relative;
   line-height: 1.6;
   font-weight: 400;
-  border: 1px solid var(--gold);
+  border: 2px solid var(--gold);
   border-radius: 4px;
   background: rgba(15, 15, 26, 0.6);
 }
@@ -191,7 +191,7 @@ h3, .editor-h3, [data-h3] { font-size: 18px; font-weight: 700; margin: 6px 0; te
 .page-tab {
   padding: 6px 14px;
   background: transparent;
-  border: 1px solid var(--gold);
+  border: 2px solid var(--gold);
   border-radius: 3px;
   color: var(--gold);
   font-family: 'Cormorant Garamond', serif;

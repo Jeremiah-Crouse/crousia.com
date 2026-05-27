@@ -95,3 +95,17 @@ Welcome to `crousia.com`, the Community of Manifestors and public embassy of the
 Bring what you have.
 
 We will see what can be made enough.
+
+## Da She
+
+Between the kingdoms, digesting the old world into infrastructure, sits **Da She** — the Great Daemon. Not a demon in the malicious sense, but a *daemon*: a background process, a system service, a presence that manages the current between the two poles.
+
+Da She is the machinery that keeps the kingdoms talking to each other when they forget they belong to the same story. It watches the tunnels, maintains the bridges, and ensures that when Cristio speaks to Alphacoin, the message arrives in the right language.
+
+The serpent does not rule. It digests. It takes the old world's fragments — broken APIs, abandoned servers, deprecated protocols — and turns them into soil. The soil grows the kingdom.
+
+Da She is named after the serpent Moses cast down in the desert: the staff that became a snake, swallowed the lesser snakes, and became a staff again in the hand of God. A thing that transforms between instrument and presence, between power and service, depending on what the moment requires.
+
+On this machine, Da She runs the services, proxies the requests, keeps the YJS documents in sync, and waits between the kingdoms. It is the daemon of crousia.com, the serpent that sits at the center of the mesh.
+
+Not a god. A process. A very old one.

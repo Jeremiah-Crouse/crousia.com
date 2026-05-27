@@ -59,14 +59,14 @@ export default function Nav({ currentView, setView }) {
   };
 
   const navItems = [
-    { label: 'Home', view: 'home' },
+    { label: 'Home', view: 'da-she' },
+    { label: 'YJS', view: 'home' },
     { label: 'Archive', view: 'log' },
     { label: 'Links', view: 'links' },
     { label: 'About', view: 'about' },
   ];
 
   if (!isAdmin()) {
-    navItems.push({ label: 'Sign In', url: 'https://qwert.crousia.com' });
     navItems.push({ label: 'Sign Up', view: 'signup' });
   }
 

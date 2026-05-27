@@ -14,6 +14,7 @@ import { ParagraphNode, TextNode } from "lexical";
 import { ImageNode } from "../components/ImageNode";
 import CrousianText from '../components/CrousianText';
 import Comments from '../components/Comments';
+import '../components/Editor.css';
 
 function PageTabs({ headings, activeIndex, onSelect }) {
   if (!headings || headings.length === 0) {

@@ -17,7 +17,7 @@
 :root {
     --bg-primary: #1a1a2e;
     --bg-secondary: #0f0f1a;
-    --gold: rgb(255, 241, 184);
+    --gold: #ffb347;
     --text-primary: #f5e6c8;
     --text-dim: #a89880;
 }
@@ -48,7 +48,7 @@ body {
     justify-content: space-between;
     align-items: center;
     padding: 0.5rem 2rem;
-    border-bottom: 1px solid var(--gold);
+    border-bottom: 3px solid var(--gold);
     min-height: 90px;
     height: 90px;
     overflow: visible;
@@ -115,7 +115,7 @@ body {
 
 .hamburger {
     background: none;
-    border: 1px solid var(--gold);
+    border: 2px solid var(--gold);
     cursor: pointer;
     padding: 0.5rem;
     display: flex;
@@ -154,7 +154,7 @@ body {
     right: 0;
     left: 0;
     background: rgba(15, 15, 26, 0.95);
-    border: 1px solid var(--gold);
+    border: 2px solid var(--gold);
     border-top: none;
     display: flex;
     flex-direction: column;
@@ -198,14 +198,14 @@ body {
     align-items: center;
     gap: 10px;
     background: rgba(15, 15, 26, 0.9);
-    border: 1px solid var(--gold);
+    border: 2px solid var(--gold);
     padding: 10px 15px;
     z-index: 100;
 }
 
 .audio-toggle {
     background: none;
-    border: 1px solid var(--gold);
+    border: 2px solid var(--gold);
     color: var(--gold);
     width: 36px;
     height: 36px;
@@ -236,7 +236,7 @@ body {
 /* Editor Shell */
 .editor-container {
     background: rgba(15, 15, 26, 0.6);
-    border: 1px solid var(--gold);
+    border: 2px solid var(--gold);
     padding: 2rem;
     margin: 2rem auto;
 }
@@ -291,7 +291,7 @@ body {
   display: block;
   padding: 16px 32px;
   background: rgba(15, 15, 26, 0.6);
-  border: 1px solid var(--gold); /* Gold */
+  border: 2px solid var(--gold); /* Gold */
   color: var(--text-primary);
   text-decoration: none;
   text-align: center;
@@ -366,14 +366,14 @@ body {
 .about-content {
     text-align: justify;
     background: rgba(15, 15, 26, 0.6);
-    border: 1px solid var(--gold);
+    border: 2px solid var(--gold);
     padding: 2rem;
     margin: 2rem auto;
 }
 
 .doc-content {
     background: rgba(15, 15, 26, 0.6);
-    border: 1px solid var(--gold);
+    border: 2px solid var(--gold);
     padding: 2rem;
     margin: 2rem auto;
 }
@@ -381,7 +381,7 @@ body {
 /* Comments Section */
 .comments-section {
   margin-top: 40px;
-  border-top: 1px solid var(--gold);
+  border-top: 2px solid var(--gold);
   padding-top: 20px;
   color: var(--text-primary);
   text-align: left;
@@ -441,7 +441,7 @@ body {
   background: rgba(15, 15, 26, 0.8);
   padding: 20px;
   border-radius: 8px;
-  border: 1px solid var(--gold);
+  border: 2px solid var(--gold);
 }
 
 .comment-form h4 {
@@ -475,7 +475,7 @@ body {
   width: 100%;
   padding: 10px;
   background: rgba(0, 0, 0, 0.3);
-  border: 1px solid var(--gold);
+  border: 2px solid var(--gold);
   color: var(--text-primary);
   border-radius: 4px;
   font-family: inherit;

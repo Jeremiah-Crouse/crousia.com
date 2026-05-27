@@ -8,6 +8,48 @@ import dotenv from "dotenv";
 import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
 import WebSocket from "ws";
+
+// ─── Persistent SSE client for Da She event stream ─────────────────────
+const EVENT_URL = 'http://127.0.0.1:1111/event';
+const RECONNECT_DELAY = 3000;
+let sseConn = null;
+let sseListeners = [];
+let sseReconnectTimer = null;
+
+function connectSSE() {
+  if (sseConn) try { sseConn.destroy(); } catch {}
+  sseConn = http.get(EVENT_URL, (res) => {
+    let buf = '';
+    res.on('data', (d) => {
+      buf += d.toString();
+      const lines = buf.split('\n');
+      buf = lines.pop() || '';
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        try {
+          const ev = JSON.parse(line.slice(5));
+          if (ev.type === 'server.connected' || ev.type === 'server.heartbeat') continue;
+          for (const cb of sseListeners) cb(ev);
+        } catch {}
+      }
+    });
+    res.on('end', () => scheduleReconnect());
+  });
+  sseConn.on('error', () => scheduleReconnect());
+}
+
+function scheduleReconnect() {
+  if (sseReconnectTimer) clearTimeout(sseReconnectTimer);
+  sseReconnectTimer = setTimeout(connectSSE, RECONNECT_DELAY);
+}
+
+function addSSEListener(cb) {
+  sseListeners.push(cb);
+  return () => { sseListeners = sseListeners.filter(l => l !== cb); };
+}
+
+connectSSE();
+// ─────────────────────────────────────────────────────────────────────────
 import multer from "multer";
 import { Jimp } from "jimp";
 import Stripe from "stripe";
@@ -673,6 +715,93 @@ app.post('/api/proxy/opencode', express.json(), async (req, res) => {
     res.status(502).json({ error: 'All AI providers failed' });
   }
 });
+
+// Da She — streams reasoning + response deltas via SSE in real time
+app.post('/api/da-she/generate', express.json(), async (req, res) => {
+  const { text, sessionID } = req.body || {};
+  if (!text) return res.status(400).json({ error: 'text required' });
+  const sid = sessionID || 'ses_3befb4677ffeSgQHiz4NWAbDBp';
+
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+  });
+
+  let done = false;
+  let assistantMessageID = null;
+  const reasoningParts = new Set();
+  const sentInitial = new Set();
+
+  const remove = addSSEListener((ev) => {
+    try {
+      // Track which message is the assistant's response
+      if (ev.type === 'message.updated') {
+        const info = ev.properties?.info || ev.properties?.message;
+        if (info?.role === 'assistant' && info?.id) {
+          assistantMessageID = info.id;
+        }
+      }
+
+      // Track part types; forward initial text from assistant's parts
+      if (ev.type === 'message.part.updated') {
+        const p = ev.properties?.part;
+        const partMsgID = p?.messageID;
+        if (partMsgID !== assistantMessageID) return; // skip user's prompt echo
+
+        if (p?.id && !sentInitial.has(p.id)) {
+          sentInitial.add(p.id);
+          if (p.type === 'reasoning') {
+            reasoningParts.add(p.id);
+          }
+          if (p.text) {
+            const type = p.type === 'reasoning' ? 'reasoning' : undefined;
+            res.write(`data: ${JSON.stringify({ delta: p.text, ...(type ? { type } : {}) })}\n\n`);
+          }
+        }
+      }
+
+      // Forward streaming deltas — route by part type
+      if (ev.type === 'message.part.delta' && ev.properties?.delta) {
+        const partID = ev.properties.partID;
+        const deltaMsgID = ev.properties.messageID;
+        if (deltaMsgID !== assistantMessageID) return;
+
+        if (partID && reasoningParts.has(partID)) {
+          res.write(`data: ${JSON.stringify({ delta: ev.properties.delta, type: 'reasoning' })}\n\n`);
+        } else {
+          res.write(`data: ${JSON.stringify({ delta: ev.properties.delta })}\n\n`);
+        }
+      }
+
+      if (ev.type === 'session.updated') {
+        done = true;
+      }
+    } catch {}
+  });
+
+  await fetch(`http://localhost:1111/session/${sid}/message`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: { providerID: 'opencode-go', modelID: 'deepseek-v4-flash' },
+      parts: [{ type: 'text', text }],
+    }),
+  }).catch(() => {});
+
+  // Wait for done or timeout
+  let waited = 0;
+  while (!done && waited < 120) {
+    await new Promise(r => setTimeout(r, 500));
+    waited++;
+  }
+
+  res.write('data: [DONE]\n\n');
+  res.end();
+  remove();
+});
+
+app.use('/api/eve', createEveRouter(eve));
 
 app.use('/api/eve', createEveRouter(eve));
 

@@ -1,1 +1,1 @@
-opencode -s ses_33a12ed11ffehUNKRrg8ttdKyg
+opencode --port 1111 -s ses_3befb4677ffeSgQHiz4NWAbDBp
