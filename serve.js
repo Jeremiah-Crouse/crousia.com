@@ -70,54 +70,56 @@ function makePara() {
 
 function daSheWrite(text, cursor = null, advance = false) {
   if (!daSheRoot || !text) return cursor;
-  sharedDoc.transact(() => {
-    let para = null;
-    let relativeOffset = 0;
+  try {
+    sharedDoc.transact(() => {
+      let para = null;
+      let relativeOffset = 0;
 
-    if (cursor && typeof cursor.blockIndex === 'number') {
-      let idx = 0;
-      let current = daSheRoot._start;
-      while (current) {
-        const typeNode = current.content?.type;
-        if (typeNode instanceof Y.XmlText || typeNode instanceof Y.XmlElement) {
-          if (idx === cursor.blockIndex) {
-            para = typeNode;
-            relativeOffset = typeof cursor.blockOffset === 'number' && cursor.blockOffset >= 0
-              ? Math.max(0, Math.min(para.length, cursor.blockOffset))
-              : para.length;
-            break;
+      if (cursor && typeof cursor.blockIndex === 'number') {
+        let idx = 0;
+        let current = daSheRoot._start;
+        while (current) {
+          const typeNode = current.content?.type;
+          if (typeNode instanceof Y.XmlText || typeNode instanceof Y.XmlElement) {
+            if (idx === cursor.blockIndex) {
+              para = typeNode;
+              const bo = typeof cursor.blockOffset === 'number' && cursor.blockOffset >= 0 ? cursor.blockOffset : para.length;
+              relativeOffset = Math.min(para.length, bo);
+              break;
+            }
+            idx++;
           }
-          idx++;
+          current = current.right;
         }
-        current = current.right;
       }
-    }
 
-    // Fallback: find the last paragraph if cursor not found
-    if (!para) {
-      let current = daSheRoot._start;
-      while (current) {
-        const typeNode = current.content?.type;
-        if (typeNode instanceof Y.XmlText || typeNode instanceof Y.XmlElement) {
-          const type = typeNode.getAttribute('__type');
-          if (type === 'paragraph' || type === 'heading') para = typeNode;
+      // Fallback: find the last paragraph if cursor not found
+      if (!para) {
+        let current = daSheRoot._start;
+        while (current) {
+          const typeNode = current.content?.type;
+          if (typeNode instanceof Y.XmlText || typeNode instanceof Y.XmlElement) {
+            para = typeNode;
+          }
+          current = current.right;
         }
-        current = current.right;
+        if (para) relativeOffset = para.length;
       }
-      if (para) relativeOffset = para.length;
-    }
 
-    if (!para) {
-      para = makePara();
-      daSheRoot.insertEmbed(daSheRoot._length, para);
-      relativeOffset = 0;
-    }
+      if (!para) {
+        para = makePara();
+        daSheRoot.insertEmbed(daSheRoot._length, para);
+        relativeOffset = 0;
+      }
 
-    para.insert(relativeOffset, text);
-    if (advance && cursor) {
-      cursor.blockOffset = relativeOffset + text.length;
-    }
-  }, 'da-she');
+      para.insert(relativeOffset, text);
+      if (advance && cursor) {
+        cursor.blockOffset = relativeOffset + text.length;
+      }
+    }, 'da-she');
+  } catch (e) {
+    console.error('[da-she] write error:', e);
+  }
   return cursor;
 }
 
@@ -340,7 +342,7 @@ const provider = new WebsocketProvider(
   { WebSocketPolyfill: WebSocket }
 );
 provider.on('sync', (synced) => {
-  daSheRoot = sharedDoc.get('root', Y.XmlText);
+  daSheRoot = sharedDoc.get('crousia-editor', Y.XmlText);
   if (synced) console.log('[da-she] root XmlText ready, paragraphs:', daSheRoot._length);
 });
 
