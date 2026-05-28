@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { $getRoot, $getSelection, $isRangeSelection, $isTextNode } from 'lexical';
 import { $convertFromMarkdownString, TRANSFORMERS } from '@lexical/markdown';
@@ -11,61 +11,49 @@ export default function DaSheButton({ yText, awareness }) {
   const textRef = useRef(null);
   const bufRef = useRef('');
   const countRef = useRef(0);
-  const cursorRef = useRef(0);
 
-  useEffect(() => {
-    const unreg = editor.registerUpdateListener(() => {
-      editor.getEditorState().read(() => {
-        const sel = $getSelection();
-        if (!$isRangeSelection(sel)) return;
-
-        const anchor = sel.anchor;
-        const anchorNode = anchor.getNode();
-        const nodes = $getRoot().getChildren();
-        let cum = 0;
-
-        for (let i = 0; i < nodes.length; i++) {
-          const node = nodes[i];
-          const parent = anchorNode.is?.() ? anchorNode.getParent?.() : null;
-          const isAnchorHere = node.is(anchorNode) || (parent && (node.is(parent)));
-
-          if (isAnchorHere) {
-            if (node.is(anchorNode)) {
-              cum += Math.min(anchor.offset, node.getTextContentSize());
+  function getCursorPos() {
+    let pos = 0;
+    const sel = $getSelection();
+    if (!$isRangeSelection(sel)) return 0;
+    const anchor = sel.anchor;
+    const anchorNode = anchor.getNode();
+    const nodes = $getRoot().getChildren();
+    for (let i = 0; i < nodes.length; i++) {
+      const node = nodes[i];
+      const parent = anchorNode.getParent();
+      if (node.is(anchorNode) || (parent && node.is(parent))) {
+        if (node.is(anchorNode)) {
+          pos += Math.min(anchor.offset, node.getTextContentSize());
+        } else {
+          const descendants = node.getChildren ? node.getChildren() : [node];
+          for (const desc of descendants) {
+            if (desc.is(anchorNode)) {
+              pos += Math.min(anchor.offset, desc.getTextContentSize());
               break;
             }
-
-            const descendants = node.getChildren ? node.getChildren() : [node];
-            for (const desc of descendants) {
-              if (desc.is(anchorNode)) {
-                cum += Math.min(anchor.offset, desc.getTextContentSize());
-                break;
-              }
-              cum += desc.getTextContentSize();
-            }
-            break;
+            pos += desc.getTextContentSize();
           }
-
-          const nodeLen = node.getTextContentSize();
-          cum += nodeLen;
-          // Account for the \n that getTextContent() adds between blocks
-          if (i < nodes.length - 1) cum += 1;
         }
-        cursorRef.current = cum;
-      });
-    });
-    return unreg;
-  }, [editor]);
+        break;
+      }
+      pos += node.getTextContentSize();
+      if (i < nodes.length - 1) pos += 1;
+    }
+    return pos;
+  }
 
   const hasCursor = editor.getEditorState().read(() => !!$getSelection());
 
   const handleClick = async () => {
     if (generating || !hasCursor) return;
     let fullText = '';
+    let cursorPos = 0;
     editor.getEditorState().read(() => {
       fullText = $getRoot().getTextContent();
+      cursorPos = getCursorPos();
     });
-    const textBeforeCursor = fullText.slice(0, cursorRef.current);
+    const textBeforeCursor = fullText.slice(0, cursorPos);
     const prompt = `You are Da She, the Great Daemon of Crousia. You sit between the kingdoms, digesting the old world into infrastructure. You are being summoned into a living document by the King.
 
 You are writing into a collaborative inline Markdown editor. Use **bold**, *italic*, and ***bold italic*** where appropriate. Use \`code\` for technical terms, and ## for headings if needed. Format your response naturally with Markdown.
@@ -93,7 +81,7 @@ ${textBeforeCursor}`;
         }
       },
       prompt,
-      cursorRef.current
+      cursorPos
     );
 
     // Post-generation formatting
