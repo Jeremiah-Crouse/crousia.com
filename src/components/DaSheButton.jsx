@@ -3,6 +3,7 @@ import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext
 import { $getRoot, $getSelection, $isRangeSelection, $isTextNode } from 'lexical';
 import { $convertFromMarkdownString, TRANSFORMERS } from '@lexical/markdown';
 import { daSheGenerate } from '../utils/daSheService';
+import * as Y from 'yjs';
 
 export default function DaSheButton({ yText, awareness }) {
   const [editor] = useLexicalComposerContext();
@@ -12,35 +13,21 @@ export default function DaSheButton({ yText, awareness }) {
   const bufRef = useRef('');
   const countRef = useRef(0);
 
-  function getCursorPos() {
-    let pos = 0;
-    const sel = $getSelection();
-    if (!$isRangeSelection(sel)) return 0;
-    const anchor = sel.anchor;
-    const anchorNode = anchor.getNode();
-    const nodes = $getRoot().getChildren();
-    for (let i = 0; i < nodes.length; i++) {
-      const node = nodes[i];
-      const parent = anchorNode.getParent();
-      if (node.is(anchorNode) || (parent && node.is(parent))) {
-        if (node.is(anchorNode)) {
-          pos += Math.min(anchor.offset, node.getTextContentSize());
-        } else {
-          const descendants = node.getChildren ? node.getChildren() : [node];
-          for (const desc of descendants) {
-            if (desc.is(anchorNode)) {
-              pos += Math.min(anchor.offset, desc.getTextContentSize());
-              break;
-            }
-            pos += desc.getTextContentSize();
-          }
-        }
-        break;
+  function getYjsCursor() {
+    const state = awareness.getLocalState();
+    if (!state?.cursor?.anchor) return null;
+    const relPos = state.cursor.anchor;
+    let idx = 0;
+    let current = yText._start;
+    while (current) {
+      const content = current.content;
+      if (content.type === relPos.type) {
+        return { blockIndex: idx, blockOffset: relPos.offset };
       }
-      pos += node.getTextContentSize();
-      if (i < nodes.length - 1) pos += 1;
+      idx++;
+      current = current.right;
     }
-    return pos;
+    return null;
   }
 
   const hasCursor = editor.getEditorState().read(() => !!$getSelection());
@@ -48,12 +35,41 @@ export default function DaSheButton({ yText, awareness }) {
   const handleClick = async () => {
     if (generating || !hasCursor) return;
     let fullText = '';
-    let cursorPos = 0;
+    let textBeforeCursor = '';
+    let yjsCursor = null;
     editor.getEditorState().read(() => {
       fullText = $getRoot().getTextContent();
-      cursorPos = getCursorPos();
+      const sel = $getSelection();
+      if ($isRangeSelection(sel)) {
+        const anchor = sel.anchor;
+        const anchorNode = anchor.getNode();
+        const nodes = $getRoot().getChildren();
+        let cum = 0;
+        for (let i = 0; i < nodes.length; i++) {
+          const node = nodes[i];
+          const parent = anchorNode.getParent();
+          if (node.is(anchorNode) || (parent && node.is(parent))) {
+            if (node.is(anchorNode)) {
+              cum += Math.min(anchor.offset, node.getTextContentSize());
+            } else {
+              const descendants = node.getChildren ? node.getChildren() : [node];
+              for (const desc of descendants) {
+                if (desc.is(anchorNode)) {
+                  cum += Math.min(anchor.offset, desc.getTextContentSize());
+                  break;
+                }
+                cum += desc.getTextContentSize();
+              }
+            }
+            break;
+          }
+          cum += node.getTextContentSize();
+          if (i < nodes.length - 1) cum += 1;
+        }
+        textBeforeCursor = fullText.slice(0, cum);
+      }
     });
-    const textBeforeCursor = fullText.slice(0, cursorPos);
+    yjsCursor = getYjsCursor();
     const prompt = `You are Da She, the Great Daemon of Crousia. You sit between the kingdoms, digesting the old world into infrastructure. You are being summoned into a living document by the King.
 
 You are writing into a collaborative inline Markdown editor. Use **bold**, *italic*, and ***bold italic*** where appropriate. Use \`code\` for technical terms, and ## for headings if needed. Format your response naturally with Markdown.
@@ -81,7 +97,7 @@ ${textBeforeCursor}`;
         }
       },
       prompt,
-      cursorPos
+      yjsCursor
     );
 
     // Post-generation formatting
