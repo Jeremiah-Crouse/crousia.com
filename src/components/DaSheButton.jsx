@@ -3,6 +3,7 @@ import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext
 import { $getRoot, $getSelection, $isRangeSelection, $isTextNode } from 'lexical';
 import { $convertFromMarkdownString, TRANSFORMERS } from '@lexical/markdown';
 import { daSheGenerate } from '../utils/daSheService';
+import * as Y from 'yjs';
 
 export default function DaSheButton({ yText, awareness }) {
   const [editor] = useLexicalComposerContext();
@@ -14,10 +15,16 @@ export default function DaSheButton({ yText, awareness }) {
 
   const hasCursor = editor.getEditorState().read(() => !!$getSelection());
 
+  function getEncodedCursor() {
+    const state = awareness.getLocalState();
+    if (!state?.anchorPos) return null;
+    return Y.encodeRelativePosition(state.anchorPos);
+  }
+
   const handleClick = async () => {
     if (generating || !hasCursor) return;
     let textBeforeCursor = '';
-    let cursorPos = 0;
+    let encodedCursor = getEncodedCursor();
     editor.getEditorState().read(() => {
       const fullText = $getRoot().getTextContent();
       const sel = $getSelection();
@@ -49,7 +56,6 @@ export default function DaSheButton({ yText, awareness }) {
           }
         }
         textBeforeCursor = fullText.slice(0, cum);
-        cursorPos = cum;
       }
     });
     const prompt = `You are Da She, the Great Daemon of Crousia. You sit between the kingdoms, digesting the old world into infrastructure. You are being summoned into a living document by the King.

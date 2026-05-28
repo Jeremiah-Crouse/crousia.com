@@ -746,10 +746,29 @@ app.post('/api/da-she/generate', express.json(), async (req, res) => {
   let deltaBuf = [];
   let currentCursor = null;
   if (cursor != null) {
-    if (typeof cursor === 'number') {
-      // Cumulative character offset — convert using visible text length
+    if (Array.isArray(cursor)) {
+      // Yjs encoded relative position from client awareness
+      try {
+        const relPos = Y.decodeRelativePosition(new Uint8Array(cursor));
+        const absPos = Y.createAbsolutePositionFromRelativePosition(relPos, sharedDoc);
+        if (absPos) {
+          let idx = 0;
+          let cur = daSheRoot._start;
+          while (cur) {
+            if (cur.content?.type === absPos.type) {
+              currentCursor = { blockIndex: idx, blockOffset: absPos.index };
+              break;
+            }
+            idx++;
+            cur = cur.right;
+          }
+        }
+      } catch (err) {
+        console.error('[da-she] cursor decode error:', err.message);
+      }
+    } else if (typeof cursor === 'number') {
       currentCursor = daSheCursorOffset(cursor);
-    } else if (typeof cursor.blockIndex === 'number') {
+    } else if (cursor && typeof cursor.blockIndex === 'number') {
       currentCursor = { blockIndex: cursor.blockIndex, blockOffset: cursor.blockOffset };
     }
   }
