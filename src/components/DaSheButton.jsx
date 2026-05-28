@@ -20,17 +20,25 @@ export default function DaSheButton({ yText, awareness }) {
     if (!doc) return null;
     const absPos = Y.createAbsolutePositionFromRelativePosition(state.anchorPos, doc);
     if (!absPos) return null;
+    // absPos.index is the offset WITHIN the paragraph type (not yText root)
+    // Find which paragraph in yText._start matches absPos.type
     let idx = 0;
-    let cum = 0;
     let current = yText._start;
     while (current) {
-      const typeNode = current.content?.type;
-      if (typeNode) {
-        const len = typeNode.length || 0;
-        if (absPos.index >= cum && absPos.index <= cum + len) {
-          return { blockIndex: idx, blockOffset: absPos.index - cum };
+      if (current.content?.type === absPos.type) {
+        return { blockIndex: idx, blockOffset: absPos.index };
+      }
+      idx++;
+      current = current.right;
+    }
+    // fallback: match by reference failed, use cumulative walk
+    idx = 0; current = yText._start;
+    while (current) {
+      const t = current.content?.type;
+      if (t && t.length !== undefined) {
+        if (absPos.index <= t.length) {
+          return { blockIndex: idx, blockOffset: absPos.index };
         }
-        cum += len;
       }
       idx++;
       current = current.right;
@@ -51,7 +59,8 @@ export default function DaSheButton({ yText, awareness }) {
         const anchorNode = sel.anchor.getNode();
         const nodes = $getRoot().getChildren();
         let cum = 0;
-        for (let i = 0; i < nodes.length; i++) {
+        let found = false;
+        for (let i = 0; i < nodes.length && !found; i++) {
           const node = nodes[i];
           const parent = anchorNode.getParent();
           if (node.is(anchorNode) || (parent && node.is(parent))) {
@@ -67,10 +76,11 @@ export default function DaSheButton({ yText, awareness }) {
                 cum += desc.getTextContentSize();
               }
             }
-            break;
+            found = true;
+          } else {
+            cum += node.getTextContentSize();
+            if (i < nodes.length - 1) cum += 1;
           }
-          cum += node.getTextContentSize();
-          if (i < nodes.length - 1) cum += 1;
         }
         textBeforeCursor = fullText.slice(0, cum);
       }
