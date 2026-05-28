@@ -15,14 +15,22 @@ export default function DaSheButton({ yText, awareness }) {
 
   function getYjsCursor() {
     const state = awareness.getLocalState();
-    if (!state?.cursor?.anchor) return null;
-    const relPos = state.cursor.anchor;
+    if (!state?.anchorPos) return null;
+    const doc = yText.doc;
+    if (!doc) return null;
+    const absPos = Y.createAbsolutePositionFromRelativePosition(state.anchorPos, doc);
+    if (!absPos) return null;
     let idx = 0;
+    let cum = 0;
     let current = yText._start;
     while (current) {
-      const content = current.content;
-      if (content.type === relPos.type) {
-        return { blockIndex: idx, blockOffset: relPos.offset };
+      const typeNode = current.content?.type;
+      if (typeNode instanceof Y.XmlText || typeNode instanceof Y.XmlElement) {
+        const len = typeNode.length;
+        if (absPos.index >= cum && absPos.index <= cum + len) {
+          return { blockIndex: idx, blockOffset: absPos.index - cum };
+        }
+        cum += len + 1;
       }
       idx++;
       current = current.right;
