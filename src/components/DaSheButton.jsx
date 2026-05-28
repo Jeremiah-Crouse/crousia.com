@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
-import { $getRoot, $getSelection, $isRangeSelection } from 'lexical';
+import { $getRoot, $getSelection, $isRangeSelection, $isTextNode } from 'lexical';
+import { $convertFromMarkdownString, TRANSFORMERS } from '@lexical/markdown';
 import { daSheGenerate } from '../utils/daSheService';
 
 export default function DaSheButton({ yText, awareness }) {
@@ -90,6 +91,13 @@ ${textBeforeCursor}`;
       prompt,
       cursorRef.current
     );
+
+    // Post-generation formatting
+    editor.update(() => {
+      const markdown = $getRoot().getTextContent();
+      $convertFromMarkdownString(markdown, TRANSFORMERS);
+    });
+
     setStatus('');
     if (textRef.current) textRef.current.textContent = '';
     bufRef.current = '';

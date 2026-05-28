@@ -708,16 +708,19 @@ app.post('/api/da-she/generate', express.json(), async (req, res) => {
   let currentOffset = (typeof cursorPos === 'number') ? cursorPos : null;
 
   const flushBuf = () => {
-    for (const { partID, delta } of deltaBuf) {
+    deltaBuf = deltaBuf.filter(({ partID, delta }) => {
       if (partID && reasoningParts.has(partID)) {
         res.write(`data: ${JSON.stringify({ delta, type: 'reasoning' })}\n\n`);
-      } else if (partID && textParts.has(partID)) {
+        return false;
+      }
+      if (partID && textParts.has(partID)) {
         deltaCount++;
         currentOffset = daSheWrite(delta, currentOffset);
         res.write(`data: ${JSON.stringify({ delta })}\n\n`);
+        return false;
       }
-    }
-    deltaBuf = [];
+      return true;
+    });
   };
 
   const remove = addSSEListener((ev) => {
@@ -736,16 +739,9 @@ app.post('/api/da-she/generate', express.json(), async (req, res) => {
         if (p?.messageID === userMessageID) return;
         if (p?.id && p.type === 'reasoning') {
           reasoningParts.add(p.id);
-          if (p.text)
-            res.write(`data: ${JSON.stringify({ delta: p.text, type: 'reasoning' })}\n\n`);
           flushBuf();
         } else if (p?.id && p.type === 'text') {
           textParts.add(p.id);
-          if (p.text) {
-            deltaCount++;
-            currentOffset = daSheWrite(p.text, currentOffset);
-            res.write(`data: ${JSON.stringify({ delta: p.text })}\n\n`);
-          }
           flushBuf();
         }
       }
