@@ -15,7 +15,24 @@ export default function DaSheButton({ yText, awareness }) {
 
   function getYjsCursor() {
     const state = awareness.getLocalState();
-    if (!state?.anchorPos) return null;
+    if (!state?.anchorPos) {
+      // Awareness cursor not set yet. Fallback: compute blockIndex from Lexical,
+      // send blockOffset = -1 so server appends to end of correct paragraph.
+      let bi = -1;
+      editor.getEditorState().read(() => {
+        const sel = $getSelection();
+        if ($isRangeSelection(sel)) {
+          const anchorNode = sel.anchor.getNode();
+          const nodes = $getRoot().getChildren();
+          for (let i = 0; i < nodes.length; i++) {
+            const n = nodes[i];
+            const p = anchorNode.getParent();
+            if (n.is(anchorNode) || (p && n.is(p))) { bi = i; break; }
+          }
+        }
+      });
+      return bi >= 0 ? { blockIndex: bi, blockOffset: -1 } : null;
+    }
     const doc = yText.doc;
     if (!doc) return null;
     const absPos = Y.createAbsolutePositionFromRelativePosition(state.anchorPos, doc);

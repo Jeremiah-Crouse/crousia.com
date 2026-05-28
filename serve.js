@@ -82,7 +82,7 @@ function daSheWrite(text, cursor = null) {
         if (typeNode instanceof Y.XmlText || typeNode instanceof Y.XmlElement) {
           if (idx === cursor.blockIndex) {
             para = typeNode;
-            relativeOffset = typeof cursor.blockOffset === 'number'
+            relativeOffset = typeof cursor.blockOffset === 'number' && cursor.blockOffset >= 0
               ? Math.max(0, Math.min(para.length, cursor.blockOffset))
               : para.length;
             break;
