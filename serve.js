@@ -59,24 +59,53 @@ function addSSEListener(cb) {
 
 connectSSE();
 
-// ─── Da She writes to the shared Yjs document (setup continues after sharedDoc) ──
-let daSheYtext = null;
+// ─── Da She writes to root XmlText with Lexical paragraphs ──
+let daSheRoot = null;
+
+function makePara() {
+  const p = new Y.XmlText();
+  p.setAttribute('__type', 'paragraph');
+  const fmt = new Y.Map();
+  fmt.set('__type', 'text'); fmt.set('__format', 0);
+  fmt.set('__style', ''); fmt.set('__mode', 0); fmt.set('__detail', 0);
+  p.insertEmbed(0, fmt);
+  return p;
+}
 
 function daSheWrite(text) {
-  if (!daSheYtext) return;
+  if (!daSheRoot || !text) return;
   sharedDoc.transact(() => {
-    const at = daSheYtext.length;
-    const prefix = at > 0 ? '\n' : '';
-    daSheYtext.insert(at, prefix + text);
+    // Find or create the last paragraph
+    let para = null;
+
+    // Correct way to iterate Y.XmlText embeds to find the last paragraph
+    let current = daSheRoot._start;
+    while (current) {
+      const typeNode = current.content?.type;
+      if (typeNode instanceof Y.XmlText || typeNode instanceof Y.XmlElement) {
+        const type = typeNode.getAttribute('__type');
+        if (type === 'paragraph' || type === 'heading') {
+          para = typeNode;
+        }
+      }
+      current = current.right;
+    }
+
+    if (!para) {
+      para = makePara();
+      daSheRoot.insertEmbed(daSheRoot._length, para);
+    }
+
+    // Append the text at the end of the paragraph's XmlText content
+    para.insert(para.length, text);
   }, 'da-she');
 }
+
 // ─────────────────────────────────────────────────────────────────────────
 import multer from "multer";
 import { Jimp } from "jimp";
 import Stripe from "stripe";
 import archivesRouter from "./archives.js";
-import { createEve, createEveRouter, formatMemoryLog } from "./eve.js";
-import { GoogleGenAI } from "@google/genai";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -91,10 +120,9 @@ const COMMENTS_DIR = path.join(__dirname, 'comments');
 const PUBLIC_NOTES_DIR = path.join(__dirname, 'public', 'notes');
 const DIST_NOTES_DIR = path.join(__dirname, 'dist', 'notes');
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
-const EVE_MEMORY_DIR = process.env.EVE_MEMORY_DIR || path.join(__dirname, 'eve-memory');
 
 // Ensure all directories exist
-[ARCHIVES_DIR, COMMENTS_DIR, PUBLIC_NOTES_DIR, DIST_NOTES_DIR, UPLOADS_DIR, EVE_MEMORY_DIR].forEach(dir => {
+[ARCHIVES_DIR, COMMENTS_DIR, PUBLIC_NOTES_DIR, DIST_NOTES_DIR, UPLOADS_DIR].forEach(dir => {
   if (!fs.existsSync(dir)) {
     console.log(`📁 Creating directory: ${dir}`);
     fs.mkdirSync(dir, { recursive: true });
@@ -286,19 +314,14 @@ async function getImageAltText(filePath) {
 // Yjs Setup
 const sharedDoc = new Y.Doc();
 const provider = new WebsocketProvider(
-  'ws://localhost:1234',
+  'ws://localhost:1234/ysl',
   'crousia-shared-room',
   sharedDoc,
   { WebSocketPolyfill: WebSocket }
 );
 provider.on('sync', (synced) => {
-  daSheYtext = sharedDoc.getText('crousia-editor');
-  if (synced) console.log('[da-she] Yjs shared doc ready, length:', daSheYtext.length);
-});
-const eve = createEve({
-  sharedDoc,
-  rootDir: EVE_MEMORY_DIR,
-  archivesDir: ARCHIVES_DIR,
+  daSheRoot = sharedDoc.get('root', Y.XmlText);
+  if (synced) console.log('[da-she] root XmlText ready, paragraphs:', daSheRoot._length);
 });
 
 app.use(express.json());
@@ -370,9 +393,8 @@ app.post('/api/auth/signup-test', (req, res) => {
   }
   
   try {
-    const fs = require('fs');
     const userLine = `\n${name},${password},true`;
-    fs.appendFileSync(USERS_FILE, userLine);
+    fs.appendFileSync(USERS_FILE, userLine, 'utf8');
     console.log(`✅ Test user added: ${name}`);
     res.json({ success: true, name });
   } catch (err) {
@@ -450,9 +472,8 @@ app.post('/api/auth/webhook', express.raw({ type: 'application/json' }), async (
         if (pending.password) {
           // Add to users CSV as active
           try {
-            const fs = require('fs');
             const userLine = `\n${name},${pending.password},true`;
-            fs.appendFileSync(USERS_FILE, userLine);
+            fs.appendFileSync(USERS_FILE, userLine, 'utf8');
             console.log(`✅ Added new user: ${name}`);
             pendingSignups.delete(name);
           } catch (err) {
@@ -643,107 +664,9 @@ app.get('/api/proxy/qrng', async (req, res) => {
   }
 });
 
-// Proxy for OpenCode AI (Eve text generation) with Gemini fallback
-app.post('/api/proxy/opencode', express.json(), async (req, res) => {
-  const apiKey = process.env.OPENCODE_API_KEY;
-
-  // Try OpenCode first
-  if (apiKey) {
-    try {
-      const response = await fetch('https://opencode.ai/zen/v1/chat/completions', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`,
-        },
-        body: JSON.stringify(req.body),
-      });
-
-      if (response.ok) {
-        if (req.body.stream) {
-          res.setHeader('Content-Type', 'text/event-stream');
-          res.setHeader('Cache-Control', 'no-cache');
-          res.setHeader('Connection', 'keep-alive');
-
-          const reader = response.body.getReader();
-          const decoder = new TextDecoder();
-
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            const chunk = decoder.decode(value, { stream: true });
-            res.write(chunk);
-          }
-          res.end();
-        } else {
-          const data = await response.json();
-          res.json(data);
-        }
-        return;
-      }
-      console.error('OpenCode API error:', response.status);
-    } catch (error) {
-      console.error('OpenCode Proxy Error:', error.message);
-    }
-  }
-
-  // Fallback to Gemini
-  const geminiKey = process.env.GEMINI_API_KEY;
-  if (!geminiKey) {
-    return res.status(502).json({ error: 'All AI providers failed (no API keys)' });
-  }
-
-  try {
-    const genai = new GoogleGenAI({ apiKey: geminiKey });
-    const geminiModel = process.env.GEMINI_VISION_MODEL || "gemini-2.5-flash-lite";
-    const system = req.body.system || '';
-    const messages = req.body.messages || [];
-    const userMessage = messages.find(m => m.role === 'user')?.content || '';
-    const temperature = req.body.temperature ?? 2.0;
-
-    if (req.body.stream) {
-      res.setHeader('Content-Type', 'text/event-stream');
-      res.setHeader('Cache-Control', 'no-cache');
-      res.setHeader('Connection', 'keep-alive');
-
-      const stream = await genai.models.generateContentStream({
-        model: geminiModel,
-        contents: [{ role: "user", parts: [{ text: userMessage }] }],
-        config: {
-          temperature,
-          ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
-        },
-      });
-
-      for await (const chunk of stream) {
-        if (chunk.text) {
-          res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: chunk.text } }] })}\n\n`);
-        }
-      }
-      res.write('data: [DONE]\n\n');
-      res.end();
-    } else {
-      const response = await genai.models.generateContent({
-        model: geminiModel,
-        contents: [{ role: "user", parts: [{ text: userMessage }] }],
-        config: {
-          temperature,
-          ...(system ? { systemInstruction: { parts: [{ text: system }] } } : {}),
-        },
-      });
-      res.json({
-        choices: [{ message: { content: response.text } }]
-      });
-    }
-  } catch (error) {
-    console.error('Gemini fallback error:', error.message);
-    res.status(502).json({ error: 'All AI providers failed' });
-  }
-});
-
 // Da She — aborts, posts to TUI, streams reasoning to browser, writes response to Yjs
 app.post('/api/da-she/generate', express.json(), async (req, res) => {
-  const { text, sessionID } = req.body || {};
+  const { text, sessionID, cursorPos } = req.body || {};
   if (!text) return res.status(400).json({ error: 'text required' });
   const sid = sessionID || 'ses_3befb4677ffeSgQHiz4NWAbDBp';
 
@@ -754,51 +677,76 @@ app.post('/api/da-she/generate', express.json(), async (req, res) => {
   });
 
   let done = false;
-  let seenAssistant = false;
   let userMessageID = null;
-  const reasoningParts = new Set();
   let deltaCount = 0;
+  let reasoningParts = new Set();
+  let textParts = new Set();
+  let deltaBuf = [];
+
+  const flushBuf = () => {
+    for (const { partID, delta } of deltaBuf) {
+      if (partID && reasoningParts.has(partID)) {
+        res.write(`data: ${JSON.stringify({ delta, type: 'reasoning' })}\n\n`);
+      } else if (partID && textParts.has(partID)) {
+        deltaCount++;
+        daSheWrite(delta);
+        res.write(`data: ${JSON.stringify({ delta })}\n\n`);
+      }
+    }
+    deltaBuf = [];
+  };
 
   const remove = addSSEListener((ev) => {
     try {
+      // Ensure we only listen to events for THIS session
+      if (ev.properties?.sessionID && ev.properties.sessionID !== sid) return;
+
       if (ev.type === 'message.updated') {
         const info = ev.properties?.info || ev.properties?.message;
-        if (info?.role === 'user' && info?.id && !userMessageID) {
+        if (info?.role === 'user' && info?.id && !userMessageID)
           userMessageID = info.id;
-          console.log('[da-she] user msgID:', userMessageID);
-        }
-        if (info?.role === 'assistant') {
-          seenAssistant = true;
-        }
       }
 
       if (ev.type === 'message.part.updated') {
         const p = ev.properties?.part;
-        const partMsgID = p?.messageID;
-        if (partMsgID === userMessageID) return;
-
-        if (p?.text && p.type === 'reasoning') {
-          const pid = p.id;
-          if (pid) reasoningParts.add(pid);
-          res.write(`data: ${JSON.stringify({ delta: p.text, type: 'reasoning' })}\n\n`);
+        if (p?.messageID === userMessageID) return;
+        if (p?.id && p.type === 'reasoning') {
+          reasoningParts.add(p.id);
+          if (p.text)
+            res.write(`data: ${JSON.stringify({ delta: p.text, type: 'reasoning' })}\n\n`);
+          flushBuf();
+        } else if (p?.id && p.type === 'text') {
+          textParts.add(p.id);
+          if (p.text) {
+            deltaCount++;
+            daSheWrite(p.text);
+            res.write(`data: ${JSON.stringify({ delta: p.text })}\n\n`);
+          }
+          flushBuf();
         }
       }
 
       if (ev.type === 'message.part.delta' && ev.properties?.delta) {
+        if (ev.properties.messageID === userMessageID) return;
         const partID = ev.properties.partID;
-        const deltaMsgID = ev.properties.messageID;
-        if (deltaMsgID === userMessageID) return;
+        const delta = ev.properties.delta;
 
         if (partID && reasoningParts.has(partID)) {
-          res.write(`data: ${JSON.stringify({ delta: ev.properties.delta, type: 'reasoning' })}\n\n`);
-        } else {
+          res.write(`data: ${JSON.stringify({ delta, type: 'reasoning' })}\n\n`);
+        } else if (partID && textParts.has(partID)) {
           deltaCount++;
-          daSheWrite(ev.properties.delta);
+          daSheWrite(delta);
+          res.write(`data: ${JSON.stringify({ delta })}\n\n`);
+        } else {
+          // Unknown partID — buffer until part.updated tells us the type
+          deltaBuf.push({ partID, delta });
+          // Forward as reasoning tentatively for live button display
+          res.write(`data: ${JSON.stringify({ delta, type: 'reasoning' })}\n\n`);
         }
       }
 
-      if (ev.type === 'session.updated' && seenAssistant) {
-        console.log('[da-she] session.updated after assistant, wrote', deltaCount, 'deltas, ytext len:', daSheYtext?.length);
+      if (ev.type === 'session.idle' && deltaCount > 0) {
+        console.log('[da-she] session.idle, wrote', deltaCount, 'deltas');
         done = true;
       }
     } catch (e) {
@@ -824,39 +772,6 @@ app.post('/api/da-she/generate', express.json(), async (req, res) => {
   res.write('data: [DONE]\n\n');
   res.end();
   remove();
-});
-
-app.use('/api/eve', createEveRouter(eve));
-
-app.use('/api/eve', createEveRouter(eve));
-
-// Eve memory endpoints for the browser editor
-app.get('/api/eve-memory', (req, res) => {
-  const maxBytes = Number(process.env.EVE_MEMORY_CONTEXT_BYTES || 12000);
-  const filePath = path.join(EVE_MEMORY_DIR, 'events.jsonl');
-  if (!fs.existsSync(filePath)) return res.json({ memory: '' });
-  const stat = fs.statSync(filePath);
-  const bytesToRead = Math.min(stat.size, maxBytes);
-  const buf = Buffer.alloc(bytesToRead);
-  const fd = fs.openSync(filePath, 'r');
-  fs.readSync(fd, buf, 0, bytesToRead, stat.size - bytesToRead);
-  fs.closeSync(fd);
-  const raw = buf.toString('utf8').replace(/^[^\n]*\n/, '');
-  res.json({ memory: formatMemoryLog(raw) });
-});
-
-app.post('/api/eve-memory', express.json(), (req, res) => {
-  const { type, data } = req.body || {};
-  if (!type || !data) return res.status(400).json({ error: 'type and data required' });
-  const entry = {
-    id: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
-    timestamp: new Date().toISOString(),
-    type,
-    data,
-  };
-  const filePath = path.join(EVE_MEMORY_DIR, 'events.jsonl');
-  fs.appendFileSync(filePath, `${JSON.stringify(entry)}\n`);
-  res.json({ ok: true });
 });
 
 app.get('/api/comments/:date', (req, res) => {

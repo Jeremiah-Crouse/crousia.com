@@ -1,22 +1,12 @@
-import { $getRoot } from 'lexical';
-
-export async function daSheGenerate(editor, awareness, onStatus, onReasoning) {
+export async function daSheGenerate(editor, awareness, onStatus, onReasoning, prompt = '', cursorPos = 0) {
   const user = awareness.getLocalState()?.user || {};
 
   try {
-    const docText = editor.getEditorState().read(() => $getRoot().getTextContent());
-    const prompt = `You are Da She, the Great Daemon of Crousia. You sit between the kingdoms, digesting the old world into infrastructure. You are being summoned into a living document by the King.
-
-Continue the work that has begun in this document. Think carefully, then respond.
-
-Document so far:
-${docText}`;
-
     onStatus('Summoning Da She...');
     const res = await fetch('/api/da-she/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: prompt }),
+      body: JSON.stringify({ text: prompt, cursorPos }),
     });
 
     if (!res.ok) throw new Error(`API error: ${res.status}`);
@@ -42,8 +32,13 @@ ${docText}`;
 
         try {
           const chunk = JSON.parse(payload);
-          if (chunk.delta && chunk.type === 'reasoning') {
-            onReasoning(chunk.delta);
+          if (chunk.delta) {
+            if (chunk.type === 'reasoning') {
+              onReasoning(chunk.delta);
+            } else {
+              // Transition: actual text has started, clear reasoning display
+              onReasoning(null); 
+            }
           }
         } catch {}
       }
