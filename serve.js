@@ -65,10 +65,6 @@ let daSheRoot = null;
 function makePara() {
   const p = new Y.XmlText();
   p.setAttribute('__type', 'paragraph');
-  const fmt = new Y.Map();
-  fmt.set('__type', 'text'); fmt.set('__format', 0);
-  fmt.set('__style', ''); fmt.set('__mode', 0); fmt.set('__detail', 0);
-  p.insertEmbed(0, fmt);
   return p;
 }
 
@@ -85,14 +81,16 @@ function daSheWrite(text, offset = null) {
       while (current) {
         const typeNode = current.content?.type;
         if (typeNode instanceof Y.XmlText || typeNode instanceof Y.XmlElement) {
-          const len = typeNode.length;
-          // Check if the global offset falls within this block
-          if (offset <= cum + len) {
+          const len = typeNode.length; // Yjs length includes text and embeds
+          
+          // Identify if the offset falls into this block or its starting boundary
+          // We treat each block as [Text]\n. The +1 is the virtual newline.
+          if (offset >= cum && (len === 0 ? offset === cum : offset <= cum + len)) {
             para = typeNode;
-            relativeOffset = offset - cum;
+            relativeOffset = Math.max(0, Math.min(para.length, offset - cum));
             break;
           }
-          cum += len + 1; // block length + implicit newline (\n)
+          cum += len + 1; // node length + virtual \n
         }
         current = current.right;
       }

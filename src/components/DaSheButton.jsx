@@ -26,10 +26,16 @@ export default function DaSheButton({ yText, awareness }) {
 
         for (let i = 0; i < nodes.length; i++) {
           const node = nodes[i];
-          // Check if the anchor node is this block or a descendant of this block
+          // anchorNode might be the ParagraphNode itself if it's empty
           const isAnchorHere = node.is(anchorNode) || (node.isParentOf && node.isParentOf(anchorNode));
 
           if (isAnchorHere) {
+            // If selection is on the paragraph itself (offset is usually 0 here)
+            if (node.is(anchorNode)) {
+              cum += anchor.offset;
+              break;
+            }
+
             // Walk descendants of this block to find exact character offset
             const descendants = node.getChildren ? node.getChildren() : [node];
             for (const desc of descendants) {
