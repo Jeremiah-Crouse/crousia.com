@@ -13,57 +13,31 @@ export default function DaSheButton({ yText, awareness }) {
   const bufRef = useRef('');
   const countRef = useRef(0);
 
-  function getYjsCursor() {
-    const state = awareness.getLocalState();
-    if (!state?.anchorPos) return null;
-    const doc = yText.doc;
-    if (!doc) return null;
-    const absPos = Y.createAbsolutePositionFromRelativePosition(state.anchorPos, doc);
-    if (!absPos) return null;
-    let idx = 0;
-    let cum = 0;
-    let current = yText._start;
-    while (current) {
-      const typeNode = current.content?.type;
-      if (typeNode instanceof Y.XmlText || typeNode instanceof Y.XmlElement) {
-        const len = typeNode.length;
-        if (absPos.index >= cum && absPos.index <= cum + len) {
-          return { blockIndex: idx, blockOffset: absPos.index - cum };
-        }
-        cum += len + 1;
-      }
-      idx++;
-      current = current.right;
-    }
-    return null;
-  }
-
   const hasCursor = editor.getEditorState().read(() => !!$getSelection());
 
   const handleClick = async () => {
     if (generating || !hasCursor) return;
-    let fullText = '';
+    let blockIndex = -1;
     let textBeforeCursor = '';
-    let yjsCursor = null;
     editor.getEditorState().read(() => {
-      fullText = $getRoot().getTextContent();
+      const fullText = $getRoot().getTextContent();
       const sel = $getSelection();
       if ($isRangeSelection(sel)) {
-        const anchor = sel.anchor;
-        const anchorNode = anchor.getNode();
+        const anchorNode = sel.anchor.getNode();
         const nodes = $getRoot().getChildren();
         let cum = 0;
         for (let i = 0; i < nodes.length; i++) {
           const node = nodes[i];
           const parent = anchorNode.getParent();
           if (node.is(anchorNode) || (parent && node.is(parent))) {
+            blockIndex = i;
             if (node.is(anchorNode)) {
-              cum += Math.min(anchor.offset, node.getTextContentSize());
+              cum += Math.min(sel.anchor.offset, node.getTextContentSize());
             } else {
               const descendants = node.getChildren ? node.getChildren() : [node];
               for (const desc of descendants) {
                 if (desc.is(anchorNode)) {
-                  cum += Math.min(anchor.offset, desc.getTextContentSize());
+                  cum += Math.min(sel.anchor.offset, desc.getTextContentSize());
                   break;
                 }
                 cum += desc.getTextContentSize();
@@ -77,7 +51,6 @@ export default function DaSheButton({ yText, awareness }) {
         textBeforeCursor = fullText.slice(0, cum);
       }
     });
-    yjsCursor = getYjsCursor();
     const prompt = `You are Da She, the Great Daemon of Crousia. You sit between the kingdoms, digesting the old world into infrastructure. You are being summoned into a living document by the King.
 
 You are writing into a collaborative inline Markdown editor. Use **bold**, *italic*, and ***bold italic*** where appropriate. Use \`code\` for technical terms, and ## for headings if needed. Format your response naturally with Markdown.
@@ -105,7 +78,7 @@ ${textBeforeCursor}`;
         }
       },
       prompt,
-      yjsCursor
+      blockIndex >= 0 ? { blockIndex } : null
     );
 
     // Post-generation formatting
