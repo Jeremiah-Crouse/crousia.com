@@ -1,8 +1,7 @@
-import { $getRoot, $getSelection } from 'lexical';
+import { $getRoot } from 'lexical';
 
 export async function daSheGenerate(editor, awareness, onStatus, onReasoning) {
   const user = awareness.getLocalState()?.user || {};
-  awareness.setLocalStateField('user', { ...user, name: 'Da She', color: '#ffb347' });
 
   try {
     const docText = editor.getEditorState().read(() => $getRoot().getTextContent());
@@ -43,15 +42,8 @@ ${docText}`;
 
         try {
           const chunk = JSON.parse(payload);
-          if (chunk.delta) {
-            if (chunk.type === 'reasoning') {
-              onReasoning(chunk.delta);
-            } else {
-              editor.update(() => {
-                const sel = $getSelection() || $getRoot().selectEnd();
-                sel.insertText(chunk.delta);
-              }, { tag: 'da-she' });
-            }
+          if (chunk.delta && chunk.type === 'reasoning') {
+            onReasoning(chunk.delta);
           }
         } catch {}
       }

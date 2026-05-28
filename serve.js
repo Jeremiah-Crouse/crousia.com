@@ -18,7 +18,9 @@ let sseReconnectTimer = null;
 
 function connectSSE() {
   if (sseConn) try { sseConn.destroy(); } catch {}
+  console.log('[sse] connecting to', EVENT_URL);
   sseConn = http.get(EVENT_URL, (res) => {
+    console.log('[sse] connected, status:', res.statusCode);
     let buf = '';
     res.on('data', (d) => {
       buf += d.toString();
@@ -29,13 +31,20 @@ function connectSSE() {
         try {
           const ev = JSON.parse(line.slice(5));
           if (ev.type === 'server.connected' || ev.type === 'server.heartbeat') continue;
+          console.log('[sse] event:', ev.type);
           for (const cb of sseListeners) cb(ev);
         } catch {}
       }
     });
-    res.on('end', () => scheduleReconnect());
+    res.on('end', () => {
+      console.log('[sse] stream ended');
+      scheduleReconnect();
+    });
   });
-  sseConn.on('error', () => scheduleReconnect());
+  sseConn.on('error', (err) => {
+    console.log('[sse] connection error:', err.message);
+    scheduleReconnect();
+  });
 }
 
 function scheduleReconnect() {
@@ -49,6 +58,18 @@ function addSSEListener(cb) {
 }
 
 connectSSE();
+
+// ─── Da She writes to the shared Yjs document (setup continues after sharedDoc) ──
+let daSheYtext = null;
+
+function daSheWrite(text) {
+  if (!daSheYtext) return;
+  sharedDoc.transact(() => {
+    const at = daSheYtext.length;
+    const prefix = at > 0 ? '\n' : '';
+    daSheYtext.insert(at, prefix + text);
+  }, 'da-she');
+}
 // ─────────────────────────────────────────────────────────────────────────
 import multer from "multer";
 import { Jimp } from "jimp";
@@ -270,6 +291,10 @@ const provider = new WebsocketProvider(
   sharedDoc,
   { WebSocketPolyfill: WebSocket }
 );
+provider.on('sync', (synced) => {
+  daSheYtext = sharedDoc.getText('crousia-editor');
+  if (synced) console.log('[da-she] Yjs shared doc ready, length:', daSheYtext.length);
+});
 const eve = createEve({
   sharedDoc,
   rootDir: EVE_MEMORY_DIR,
@@ -716,7 +741,7 @@ app.post('/api/proxy/opencode', express.json(), async (req, res) => {
   }
 });
 
-// Da She — streams reasoning + response deltas via SSE in real time
+// Da She — aborts, posts to TUI, streams reasoning to browser, writes response to Yjs
 app.post('/api/da-she/generate', express.json(), async (req, res) => {
   const { text, sessionID } = req.body || {};
   if (!text) return res.status(400).json({ error: 'text required' });
@@ -729,55 +754,56 @@ app.post('/api/da-she/generate', express.json(), async (req, res) => {
   });
 
   let done = false;
-  let assistantMessageID = null;
+  let seenAssistant = false;
+  let userMessageID = null;
   const reasoningParts = new Set();
-  const sentInitial = new Set();
+  let deltaCount = 0;
 
   const remove = addSSEListener((ev) => {
     try {
-      // Track which message is the assistant's response
       if (ev.type === 'message.updated') {
         const info = ev.properties?.info || ev.properties?.message;
-        if (info?.role === 'assistant' && info?.id) {
-          assistantMessageID = info.id;
+        if (info?.role === 'user' && info?.id && !userMessageID) {
+          userMessageID = info.id;
+          console.log('[da-she] user msgID:', userMessageID);
+        }
+        if (info?.role === 'assistant') {
+          seenAssistant = true;
         }
       }
 
-      // Track part types; forward initial text from assistant's parts
       if (ev.type === 'message.part.updated') {
         const p = ev.properties?.part;
         const partMsgID = p?.messageID;
-        if (partMsgID !== assistantMessageID) return; // skip user's prompt echo
+        if (partMsgID === userMessageID) return;
 
-        if (p?.id && !sentInitial.has(p.id)) {
-          sentInitial.add(p.id);
-          if (p.type === 'reasoning') {
-            reasoningParts.add(p.id);
-          }
-          if (p.text) {
-            const type = p.type === 'reasoning' ? 'reasoning' : undefined;
-            res.write(`data: ${JSON.stringify({ delta: p.text, ...(type ? { type } : {}) })}\n\n`);
-          }
+        if (p?.text && p.type === 'reasoning') {
+          const pid = p.id;
+          if (pid) reasoningParts.add(pid);
+          res.write(`data: ${JSON.stringify({ delta: p.text, type: 'reasoning' })}\n\n`);
         }
       }
 
-      // Forward streaming deltas — route by part type
       if (ev.type === 'message.part.delta' && ev.properties?.delta) {
         const partID = ev.properties.partID;
         const deltaMsgID = ev.properties.messageID;
-        if (deltaMsgID !== assistantMessageID) return;
+        if (deltaMsgID === userMessageID) return;
 
         if (partID && reasoningParts.has(partID)) {
           res.write(`data: ${JSON.stringify({ delta: ev.properties.delta, type: 'reasoning' })}\n\n`);
         } else {
-          res.write(`data: ${JSON.stringify({ delta: ev.properties.delta })}\n\n`);
+          deltaCount++;
+          daSheWrite(ev.properties.delta);
         }
       }
 
-      if (ev.type === 'session.updated') {
+      if (ev.type === 'session.updated' && seenAssistant) {
+        console.log('[da-she] session.updated after assistant, wrote', deltaCount, 'deltas, ytext len:', daSheYtext?.length);
         done = true;
       }
-    } catch {}
+    } catch (e) {
+      console.log('[da-she] listener error:', e.message);
+    }
   });
 
   await fetch(`http://localhost:1111/session/${sid}/message`, {
@@ -789,7 +815,6 @@ app.post('/api/da-she/generate', express.json(), async (req, res) => {
     }),
   }).catch(() => {});
 
-  // Wait for done or timeout
   let waited = 0;
   while (!done && waited < 120) {
     await new Promise(r => setTimeout(r, 500));
