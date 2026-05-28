@@ -3,7 +3,6 @@ import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext
 import { $getRoot, $getSelection, $isRangeSelection, $isTextNode } from 'lexical';
 import { $convertFromMarkdownString, TRANSFORMERS } from '@lexical/markdown';
 import { daSheGenerate } from '../utils/daSheService';
-import * as Y from 'yjs';
 
 export default function DaSheButton({ yText, awareness }) {
   const [editor] = useLexicalComposerContext();
@@ -13,76 +12,46 @@ export default function DaSheButton({ yText, awareness }) {
   const bufRef = useRef('');
   const countRef = useRef(0);
 
-  function getYjsCursor() {
-    const state = awareness.getLocalState();
-    if (!state?.anchorPos) {
-      // Awareness cursor not set yet. Fallback: compute blockIndex from Lexical,
-      // send blockOffset = -1 so server appends to end of correct paragraph.
-      let bi = -1;
-      editor.getEditorState().read(() => {
-        const sel = $getSelection();
-        if ($isRangeSelection(sel)) {
-          const anchorNode = sel.anchor.getNode();
-          const nodes = $getRoot().getChildren();
-          for (let i = 0; i < nodes.length; i++) {
-            const n = nodes[i];
-            const p = anchorNode.getParent();
-            if (n.is(anchorNode) || (p && n.is(p))) { bi = i; break; }
-          }
-        }
-      });
-      return bi >= 0 ? { blockIndex: bi, blockOffset: -1 } : null;
-    }
-    const doc = yText.doc;
-    if (!doc) return null;
-    const absPos = Y.createAbsolutePositionFromRelativePosition(state.anchorPos, doc);
-    if (!absPos) return null;
-    let idx = 0;
-    let cum = 0;
-    let current = yText._start;
-    while (current) {
-      const typeNode = current.content?.type;
-      if (typeNode instanceof Y.XmlText || typeNode instanceof Y.XmlElement) {
-        const len = typeNode.length;
-        if (absPos.index >= cum && absPos.index <= cum + len) {
-          return { blockIndex: idx, blockOffset: absPos.index - cum };
-        }
-        cum += len;
-      }
-      idx++;
-      current = current.right;
-    }
-    return null;
-  }
-
   const hasCursor = editor.getEditorState().read(() => !!$getSelection());
 
   const handleClick = async () => {
     if (generating || !hasCursor) return;
     let textBeforeCursor = '';
-    let yjsCursor = null;
+    let cursorPos = { blockIndex: 0, blockOffset: -1 };
     editor.getEditorState().read(() => {
       const fullText = $getRoot().getTextContent();
       const sel = $getSelection();
       if ($isRangeSelection(sel)) {
-        const anchorNode = sel.anchor.getNode();
+        const anchor = sel.anchor;
+        const anchorNode = anchor.getNode();
+        const isText = anchor.type === 'text';
         const nodes = $getRoot().getChildren();
         let cum = 0;
         for (let i = 0; i < nodes.length; i++) {
           const node = nodes[i];
           const parent = anchorNode.getParent();
           if (node.is(anchorNode) || (parent && node.is(parent))) {
-            if (node.is(anchorNode)) {
-              cum += Math.min(sel.anchor.offset, node.getTextContentSize());
+            cursorPos.blockIndex = i;
+            if (node.is(anchorNode) && isText) {
+              cum += Math.min(anchor.offset, node.getTextContentSize());
+            } else if (node.is(anchorNode)) {
+              cum += Math.min(anchor.offset, node.getTextContentSize());
             } else {
-              const descendants = node.getChildren ? node.getChildren() : [node];
-              for (const desc of descendants) {
-                if (desc.is(anchorNode)) {
-                  cum += Math.min(sel.anchor.offset, desc.getTextContentSize());
-                  break;
+              const children = node.getChildren ? node.getChildren() : [node];
+              let yjsOff = 0;
+              for (const child of children) {
+                if ($isTextNode(child)) {
+                  if (child.is(anchorNode)) {
+                    yjsOff += anchor.offset;
+                    break;
+                  }
+                  yjsOff += child.getTextContentSize() + 1;
+                } else {
+                  if (child.is(anchorNode)) { break; }
+                  yjsOff++;
                 }
-                cum += desc.getTextContentSize();
               }
+              cursorPos.blockOffset = yjsOff;
             }
             break;
           }
@@ -90,7 +59,6 @@ export default function DaSheButton({ yText, awareness }) {
           if (i < nodes.length - 1) cum += 1;
         }
         textBeforeCursor = fullText.slice(0, cum);
-        yjsCursor = getYjsCursor();
       }
     });
     const prompt = `You are Da She, the Great Daemon of Crousia. You sit between the kingdoms, digesting the old world into infrastructure. You are being summoned into a living document by the King.
@@ -120,7 +88,7 @@ ${textBeforeCursor}`;
         }
       },
       prompt,
-      yjsCursor
+      cursorPos
     );
 
     // Post-generation formatting
