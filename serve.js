@@ -68,8 +68,8 @@ function makePara() {
   return p;
 }
 
-function daSheWrite(text, cursor = null) {
-  if (!daSheRoot || !text) return;
+function daSheWrite(text, cursor = null, advance = false) {
+  if (!daSheRoot || !text) return cursor;
   sharedDoc.transact(() => {
     let para = null;
     let relativeOffset = 0;
@@ -114,7 +114,11 @@ function daSheWrite(text, cursor = null) {
     }
 
     para.insert(relativeOffset, text);
+    if (advance && cursor) {
+      cursor.blockOffset = relativeOffset + text.length;
+    }
   }, 'da-she');
+  return cursor;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -708,7 +712,7 @@ app.post('/api/da-she/generate', express.json(), async (req, res) => {
       }
       if (partID && textParts.has(partID)) {
         deltaCount++;
-        currentOffset = daSheWrite(delta, currentOffset);
+        daSheWrite(delta, currentCursor, true);
         res.write(`data: ${JSON.stringify({ delta })}\n\n`);
         return false;
       }
@@ -748,7 +752,7 @@ app.post('/api/da-she/generate', express.json(), async (req, res) => {
           res.write(`data: ${JSON.stringify({ delta, type: 'reasoning' })}\n\n`);
         } else if (partID && textParts.has(partID)) {
           deltaCount++;
-        daSheWrite(delta, currentCursor);
+        daSheWrite(delta, currentCursor, true);
           res.write(`data: ${JSON.stringify({ delta })}\n\n`);
         } else {
           // Unknown partID — buffer until part.updated tells us the type
