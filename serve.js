@@ -135,7 +135,13 @@ function daSheCursorOffset(cursorOffset) {
     if (typeNode instanceof Y.XmlText || typeNode instanceof Y.XmlElement) {
       const visibleLen = typeNode.toString().length;
       if (cursorOffset >= cum && cursorOffset <= cum + visibleLen) {
-        const blockIndex = [...daSheRoot._start].filter(i => i.content?.type instanceof Y.XmlText || i.content?.type instanceof Y.XmlElement).indexOf(current);
+        // Count matching items up to current node (Yjs _start is not iterable)
+        let blockIndex = 0;
+        let walker = daSheRoot._start;
+        while (walker && walker !== current) {
+          if (walker.content?.type instanceof Y.XmlText || walker.content?.type instanceof Y.XmlElement) blockIndex++;
+          walker = walker.right;
+        }
         const blockOffset = Math.max(0, cursorOffset - cum);
         return { blockIndex, blockOffset };
       }
