@@ -132,20 +132,26 @@ function daSheCursorOffset(cursorOffset) {
   let current = daSheRoot._start;
   while (current) {
     const typeNode = current.content?.type;
-    if (typeNode instanceof Y.XmlText || typeNode instanceof Y.XmlElement) {
-      const visibleLen = typeNode.toString().length;
-      if (cursorOffset >= cum && cursorOffset <= cum + visibleLen) {
-        // Count matching items up to current node (Yjs _start is not iterable)
-        let blockIndex = 0;
-        let walker = daSheRoot._start;
-        while (walker && walker !== current) {
-          if (walker.content?.type instanceof Y.XmlText || walker.content?.type instanceof Y.XmlElement) blockIndex++;
-          walker = walker.right;
+    if (typeNode instanceof Y.XmlElement) {
+      const type = typeNode.getAttribute('__type');
+      if (type === 'paragraph' || type === 'heading') {
+        const visibleLen = typeNode.toString().length;
+        if (cursorOffset >= cum && cursorOffset <= cum + visibleLen) {
+          let blockIndex = 0;
+          let walker = daSheRoot._start;
+          while (walker && walker !== current) {
+            const wt = walker.content?.type;
+            if (wt instanceof Y.XmlElement) {
+              const tt = wt.getAttribute('__type');
+              if (tt === 'paragraph' || tt === 'heading') blockIndex++;
+            }
+            walker = walker.right;
+          }
+          const blockOffset = Math.max(0, cursorOffset - cum);
+          return { blockIndex, blockOffset };
         }
-        const blockOffset = Math.max(0, cursorOffset - cum);
-        return { blockIndex, blockOffset };
+        cum += visibleLen + 1;
       }
-      cum += visibleLen + 1;
     }
     current = current.right;
   }
