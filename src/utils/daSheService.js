@@ -1,4 +1,4 @@
-export async function daSheGenerate(editor, awareness, onStatus, onReasoning, prompt = '', cursorPos = 0) {
+export async function daSheGenerate(editor, awareness, onStatus, onReasoning, prompt = '', cursor = { blockIndex: 0, blockOffset: 0 }) {
   const user = awareness.getLocalState()?.user || {};
 
   try {
@@ -6,7 +6,7 @@ export async function daSheGenerate(editor, awareness, onStatus, onReasoning, pr
     const res = await fetch('/api/da-she/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: prompt, cursorPos }),
+      body: JSON.stringify({ text: prompt, cursor }),
     });
 
     if (!res.ok) throw new Error(`API error: ${res.status}`);

@@ -22,36 +22,35 @@ export default function DaSheButton({ yText, awareness }) {
         const anchor = sel.anchor;
         const anchorNode = anchor.getNode();
         const nodes = $getRoot().getChildren();
-        let cum = 0;
+        let blockIndex = 0;
+        let blockOffset = 0;
+        let found = false;
 
-        for (let i = 0; i < nodes.length; i++) {
+        for (let i = 0; i < nodes.length && !found; i++) {
           const node = nodes[i];
-          const parent = anchorNode.is?.() ? anchorNode.getParent?.() : null;
-          const isAnchorHere = node.is(anchorNode) || (parent && (node.is(parent)));
+          const parent = anchorNode.getParent?.();
+          const isAnchorHere = node.is(anchorNode) || (parent && node.is(parent));
 
           if (isAnchorHere) {
+            blockIndex = i;
             if (node.is(anchorNode)) {
-              cum += Math.min(anchor.offset, node.getTextContentSize());
-              break;
-            }
-
-            const descendants = node.getChildren ? node.getChildren() : [node];
-            for (const desc of descendants) {
-              if (desc.is(anchorNode)) {
-                cum += Math.min(anchor.offset, desc.getTextContentSize());
-                break;
+              blockOffset = Math.min(anchor.offset, node.getTextContentSize());
+            } else {
+              let within = 0;
+              const descendants = node.getChildren ? node.getChildren() : [node];
+              for (const desc of descendants) {
+                if (desc.is(anchorNode)) {
+                  within += Math.min(anchor.offset, desc.getTextContentSize());
+                  break;
+                }
+                within += desc.getTextContentSize();
               }
-              cum += desc.getTextContentSize();
+              blockOffset = within;
             }
-            break;
+            found = true;
           }
-
-          const nodeLen = node.getTextContentSize();
-          cum += nodeLen;
-          // Account for the \n that getTextContent() adds between blocks
-          if (i < nodes.length - 1) cum += 1;
         }
-        cursorRef.current = cum;
+        cursorRef.current = { blockIndex, blockOffset };
       });
     });
     return unreg;
@@ -61,6 +60,7 @@ export default function DaSheButton({ yText, awareness }) {
 
   const handleClick = async () => {
     if (generating || !hasCursor) return;
+    const { blockIndex, blockOffset } = cursorRef.current || { blockIndex: 0, blockOffset: 0 };
     let fullText = '';
     editor.getEditorState().read(() => {
       fullText = $getRoot().getTextContent();
@@ -84,16 +84,14 @@ ${textBeforeCursor}`;
       m => setStatus(m),
       t => {
         if (t === null) {
-          // Transitioning to text mode
           if (textRef.current) textRef.current.textContent = 'Da She is writing...';
         } else {
-          // Stream reasoning as a ticker (last 30 chars)
           bufRef.current = (bufRef.current + t).slice(-30);
           if (textRef.current) textRef.current.textContent = bufRef.current;
         }
       },
       prompt,
-      cursorRef.current
+      { blockIndex, blockOffset }
     );
 
     // Post-generation formatting

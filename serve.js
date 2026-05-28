@@ -68,35 +68,30 @@ function makePara() {
   return p;
 }
 
-function daSheWrite(text, offset = null) {
+function daSheWrite(text, cursor = null) {
   if (!daSheRoot || !text) return;
-  let newOffset = offset;
   sharedDoc.transact(() => {
     let para = null;
     let relativeOffset = 0;
 
-    if (offset !== null) {
-      let cum = 0;
+    if (cursor && typeof cursor.blockIndex === 'number') {
+      let idx = 0;
       let current = daSheRoot._start;
       while (current) {
         const typeNode = current.content?.type;
         if (typeNode instanceof Y.XmlText || typeNode instanceof Y.XmlElement) {
-          const len = typeNode.length; // Yjs length includes text and embeds
-          
-          // Identify if the offset falls into this block or its starting boundary
-          // We treat each block as [Text]\n. The +1 is the virtual newline.
-          if (offset >= cum && (len === 0 ? offset === cum : offset <= cum + len)) {
+          if (idx === cursor.blockIndex) {
             para = typeNode;
-            relativeOffset = Math.max(0, Math.min(para.length, offset - cum));
+            relativeOffset = Math.max(0, Math.min(para.length, cursor.blockOffset || 0));
             break;
           }
-          cum += len + 1; // node length + virtual \n
+          idx++;
         }
         current = current.right;
       }
     }
 
-    // Fallback: find the last paragraph if offset is null or not found
+    // Fallback: find the last paragraph if cursor not found
     if (!para) {
       let current = daSheRoot._start;
       while (current) {
@@ -117,9 +112,7 @@ function daSheWrite(text, offset = null) {
     }
 
     para.insert(relativeOffset, text);
-    if (newOffset !== null) newOffset += text.length;
   }, 'da-she');
-  return newOffset;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -687,7 +680,7 @@ app.get('/api/proxy/qrng', async (req, res) => {
 
 // Da She — aborts, posts to TUI, streams reasoning to browser, writes response to Yjs
 app.post('/api/da-she/generate', express.json(), async (req, res) => {
-  const { text, sessionID, cursorPos } = req.body || {};
+  const { text, sessionID, cursor } = req.body || {};
   if (!text) return res.status(400).json({ error: 'text required' });
   const sid = sessionID || 'ses_3befb4677ffeSgQHiz4NWAbDBp';
 
@@ -703,7 +696,7 @@ app.post('/api/da-she/generate', express.json(), async (req, res) => {
   let reasoningParts = new Set();
   let textParts = new Set();
   let deltaBuf = [];
-  let currentOffset = (typeof cursorPos === 'number') ? cursorPos : null;
+  let currentCursor = (cursor && typeof cursor.blockIndex === 'number') ? cursor : null;
 
   const flushBuf = () => {
     deltaBuf = deltaBuf.filter(({ partID, delta }) => {
@@ -753,7 +746,7 @@ app.post('/api/da-she/generate', express.json(), async (req, res) => {
           res.write(`data: ${JSON.stringify({ delta, type: 'reasoning' })}\n\n`);
         } else if (partID && textParts.has(partID)) {
           deltaCount++;
-          currentOffset = daSheWrite(delta, currentOffset);
+          daSheWrite(delta, currentCursor);
           res.write(`data: ${JSON.stringify({ delta })}\n\n`);
         } else {
           // Unknown partID — buffer until part.updated tells us the type
