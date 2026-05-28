@@ -81,16 +81,19 @@ function daSheWrite(text, offset = null) {
       while (current) {
         const typeNode = current.content?.type;
         if (typeNode instanceof Y.XmlText || typeNode instanceof Y.XmlElement) {
-          const len = typeNode.length; // Yjs length includes text and embeds
-          
-          // Identify if the offset falls into this block or its starting boundary
-          // We treat each block as [Text]\n. The +1 is the virtual newline.
+          // Find the block that contains the cursor, then always append to its end
+          const len = typeNode.length;
           if (offset >= cum && (len === 0 ? offset === cum : offset <= cum + len)) {
             para = typeNode;
-            relativeOffset = Math.max(0, Math.min(para.length, offset - cum));
+            relativeOffset = para.length; // always append to end
             break;
           }
-          cum += len + 1; // node length + virtual \n
+          cum += len + 1;
+        }
+        current = current.right;
+      }
+    }
+          cum += len + 1;
         }
         current = current.right;
       }
