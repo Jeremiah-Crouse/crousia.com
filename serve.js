@@ -145,41 +145,7 @@ function daSheCursorOffset(cursorOffset) {
   }
   return null;
 }
-          idx++;
-        }
-        current = current.right;
-      }
-    }
 
-    // Fallback: find the last paragraph if cursor not found
-    if (!para) {
-      let current = daSheRoot._start;
-      while (current) {
-        const typeNode = current.content?.type;
-        if (typeNode instanceof Y.XmlText || typeNode instanceof Y.XmlElement) {
-          const type = typeNode.getAttribute('__type');
-          if (type === 'paragraph' || type === 'heading') para = typeNode;
-        }
-        current = current.right;
-      }
-      if (para) relativeOffset = para.length;
-    }
-
-    if (!para) {
-      para = makePara();
-      daSheRoot.insertEmbed(daSheRoot._length, para);
-      relativeOffset = 0;
-    }
-
-    para.insert(relativeOffset, text);
-    if (advance && cursor) {
-      cursor.blockOffset = relativeOffset + text.length;
-    }
-  }, 'da-she');
-  return cursor;
-}
-
-// ─────────────────────────────────────────────────────────────────────────
 import multer from "multer";
 import { Jimp } from "jimp";
 import Stripe from "stripe";
