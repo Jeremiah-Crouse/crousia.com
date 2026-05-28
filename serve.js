@@ -72,33 +72,56 @@ function makePara() {
   return p;
 }
 
-function daSheWrite(text) {
+function daSheWrite(text, offset = null) {
   if (!daSheRoot || !text) return;
+  let newOffset = offset;
   sharedDoc.transact(() => {
-    // Find or create the last paragraph
     let para = null;
+    let relativeOffset = 0;
 
-    // Correct way to iterate Y.XmlText embeds to find the last paragraph
-    let current = daSheRoot._start;
-    while (current) {
-      const typeNode = current.content?.type;
-      if (typeNode instanceof Y.XmlText || typeNode instanceof Y.XmlElement) {
-        const type = typeNode.getAttribute('__type');
-        if (type === 'paragraph' || type === 'heading') {
-          para = typeNode;
+    if (offset !== null) {
+      let cum = 0;
+      let current = daSheRoot._start;
+      while (current) {
+        const typeNode = current.content?.type;
+        if (typeNode instanceof Y.XmlText || typeNode instanceof Y.XmlElement) {
+          const len = typeNode.length;
+          // Check if the global offset falls within this block
+          if (offset <= cum + len) {
+            para = typeNode;
+            relativeOffset = offset - cum;
+            break;
+          }
+          cum += len + 1; // block length + implicit newline (\n)
         }
+        current = current.right;
       }
-      current = current.right;
+    }
+
+    // Fallback: find the last paragraph if offset is null or not found
+    if (!para) {
+      let current = daSheRoot._start;
+      while (current) {
+        const typeNode = current.content?.type;
+        if (typeNode instanceof Y.XmlText || typeNode instanceof Y.XmlElement) {
+          const type = typeNode.getAttribute('__type');
+          if (type === 'paragraph' || type === 'heading') para = typeNode;
+        }
+        current = current.right;
+      }
+      if (para) relativeOffset = para.length;
     }
 
     if (!para) {
       para = makePara();
       daSheRoot.insertEmbed(daSheRoot._length, para);
+      relativeOffset = 0;
     }
 
-    // Append the text at the end of the paragraph's XmlText content
-    para.insert(para.length, text);
+    para.insert(relativeOffset, text);
+    if (newOffset !== null) newOffset += text.length;
   }, 'da-she');
+  return newOffset;
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -682,6 +705,7 @@ app.post('/api/da-she/generate', express.json(), async (req, res) => {
   let reasoningParts = new Set();
   let textParts = new Set();
   let deltaBuf = [];
+  let currentOffset = (typeof cursorPos === 'number') ? cursorPos : null;
 
   const flushBuf = () => {
     for (const { partID, delta } of deltaBuf) {
@@ -689,7 +713,7 @@ app.post('/api/da-she/generate', express.json(), async (req, res) => {
         res.write(`data: ${JSON.stringify({ delta, type: 'reasoning' })}\n\n`);
       } else if (partID && textParts.has(partID)) {
         deltaCount++;
-        daSheWrite(delta);
+        currentOffset = daSheWrite(delta, currentOffset);
         res.write(`data: ${JSON.stringify({ delta })}\n\n`);
       }
     }
@@ -719,7 +743,7 @@ app.post('/api/da-she/generate', express.json(), async (req, res) => {
           textParts.add(p.id);
           if (p.text) {
             deltaCount++;
-            daSheWrite(p.text);
+            currentOffset = daSheWrite(p.text, currentOffset);
             res.write(`data: ${JSON.stringify({ delta: p.text })}\n\n`);
           }
           flushBuf();
@@ -735,7 +759,7 @@ app.post('/api/da-she/generate', express.json(), async (req, res) => {
           res.write(`data: ${JSON.stringify({ delta, type: 'reasoning' })}\n\n`);
         } else if (partID && textParts.has(partID)) {
           deltaCount++;
-          daSheWrite(delta);
+          currentOffset = daSheWrite(delta, currentOffset);
           res.write(`data: ${JSON.stringify({ delta })}\n\n`);
         } else {
           // Unknown partID — buffer until part.updated tells us the type

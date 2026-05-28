@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
-import { $getRoot, $getSelection } from 'lexical';
+import { $getRoot, $getSelection, $isRangeSelection } from 'lexical';
 import { daSheGenerate } from '../utils/daSheService';
 
 export default function DaSheButton({ yText, awareness }) {
@@ -16,16 +16,35 @@ export default function DaSheButton({ yText, awareness }) {
     const unreg = editor.registerUpdateListener(() => {
       editor.getEditorState().read(() => {
         const sel = $getSelection();
-        if (!sel) return;
+        if (!$isRangeSelection(sel)) return;
+
+        const anchor = sel.anchor;
+        const anchorNode = anchor.getNode();
         const nodes = $getRoot().getChildren();
         let cum = 0;
-        for (const node of nodes) {
-          const nodeLen = node.getTextContentSize();
-          if (node === sel.anchor.getNode().getParentOrThrow()) {
-            cum += sel.anchor.offset;
+
+        for (let i = 0; i < nodes.length; i++) {
+          const node = nodes[i];
+          // Check if the anchor node is this block or a descendant of this block
+          const isAnchorHere = node.is(anchorNode) || (node.isParentOf && node.isParentOf(anchorNode));
+
+          if (isAnchorHere) {
+            // Walk descendants of this block to find exact character offset
+            const descendants = node.getChildren ? node.getChildren() : [node];
+            for (const desc of descendants) {
+              if (desc.is(anchorNode)) {
+                cum += anchor.offset;
+                break;
+              }
+              cum += desc.getTextContentSize();
+            }
             break;
           }
+
+          const nodeLen = node.getTextContentSize();
           cum += nodeLen;
+          // Account for the \n that getTextContent() adds between blocks
+          if (i < nodes.length - 1) cum += 1;
         }
         cursorRef.current = cum;
       });
