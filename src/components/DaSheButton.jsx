@@ -3,6 +3,7 @@ import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext
 import { $getRoot, $getSelection, $isRangeSelection, $isTextNode } from 'lexical';
 import { $convertFromMarkdownString, TRANSFORMERS } from '@lexical/markdown';
 import { daSheGenerate } from '../utils/daSheService';
+import * as Y from 'yjs';
 
 export default function DaSheButton({ yText, awareness }) {
   const [editor] = useLexicalComposerContext();
@@ -12,46 +13,59 @@ export default function DaSheButton({ yText, awareness }) {
   const bufRef = useRef('');
   const countRef = useRef(0);
 
+  function getYjsCursor() {
+    const state = awareness.getLocalState();
+    if (!state?.anchorPos) return null;
+    const doc = yText.doc;
+    if (!doc) return null;
+    const absPos = Y.createAbsolutePositionFromRelativePosition(state.anchorPos, doc);
+    if (!absPos) return null;
+    let idx = 0;
+    let cum = 0;
+    let current = yText._start;
+    while (current) {
+      const typeNode = current.content?.type;
+      if (typeNode) {
+        const len = typeNode.length || 0;
+        if (absPos.index >= cum && absPos.index <= cum + len) {
+          return { blockIndex: idx, blockOffset: absPos.index - cum };
+        }
+        cum += len;
+      }
+      idx++;
+      current = current.right;
+    }
+    return null;
+  }
+
   const hasCursor = editor.getEditorState().read(() => !!$getSelection());
 
   const handleClick = async () => {
     if (generating || !hasCursor) return;
     let textBeforeCursor = '';
-    let cursorPos = { blockIndex: 0, blockOffset: -1 };
+    let yjsCursor = getYjsCursor();
     editor.getEditorState().read(() => {
       const fullText = $getRoot().getTextContent();
       const sel = $getSelection();
       if ($isRangeSelection(sel)) {
-        const anchor = sel.anchor;
-        const anchorNode = anchor.getNode();
-        const isText = anchor.type === 'text';
+        const anchorNode = sel.anchor.getNode();
         const nodes = $getRoot().getChildren();
         let cum = 0;
         for (let i = 0; i < nodes.length; i++) {
           const node = nodes[i];
           const parent = anchorNode.getParent();
           if (node.is(anchorNode) || (parent && node.is(parent))) {
-            cursorPos.blockIndex = i;
-            if (node.is(anchorNode) && isText) {
-              cum += Math.min(anchor.offset, node.getTextContentSize());
-            } else if (node.is(anchorNode)) {
-              cum += Math.min(anchor.offset, node.getTextContentSize());
+            if (node.is(anchorNode)) {
+              cum += Math.min(sel.anchor.offset, node.getTextContentSize());
             } else {
-              const children = node.getChildren ? node.getChildren() : [node];
-              let yjsOff = 0;
-              for (const child of children) {
-                if ($isTextNode(child)) {
-                  if (child.is(anchorNode)) {
-                    yjsOff += anchor.offset;
-                    break;
-                  }
-                  yjsOff += child.getTextContentSize() + 1;
-                } else {
-                  if (child.is(anchorNode)) { break; }
-                  yjsOff++;
+              const descendants = node.getChildren ? node.getChildren() : [node];
+              for (const desc of descendants) {
+                if (desc.is(anchorNode)) {
+                  cum += Math.min(sel.anchor.offset, desc.getTextContentSize());
+                  break;
                 }
+                cum += desc.getTextContentSize();
               }
-              cursorPos.blockOffset = yjsOff;
             }
             break;
           }
@@ -79,16 +93,14 @@ ${textBeforeCursor}`;
       m => setStatus(m),
       t => {
         if (t === null) {
-          // Transitioning to text mode
           if (textRef.current) textRef.current.textContent = 'Da She is writing...';
         } else {
-          // Stream reasoning as a ticker (last 30 chars)
           bufRef.current = (bufRef.current + t).slice(-30);
           if (textRef.current) textRef.current.textContent = bufRef.current;
         }
       },
       prompt,
-      null
+      yjsCursor
     );
 
     // Post-generation formatting
