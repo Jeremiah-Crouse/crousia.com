@@ -130,31 +130,37 @@ function daSheCursorOffset(cursorOffset) {
   if (cursorOffset == null || !daSheRoot) return null;
   let cum = 0;
   let current = daSheRoot._start;
+  console.log('[da-she] cursorOffset received:', cursorOffset);
   while (current) {
     const typeNode = current.content?.type;
-    if (typeNode instanceof Y.XmlElement) {
-      const type = typeNode.getAttribute('__type');
-      if (type === 'paragraph' || type === 'heading') {
-        const visibleLen = typeNode.toString().length;
-        if (cursorOffset >= cum && cursorOffset <= cum + visibleLen) {
-          let blockIndex = 0;
-          let walker = daSheRoot._start;
-          while (walker && walker !== current) {
-            const wt = walker.content?.type;
-            if (wt instanceof Y.XmlElement) {
-              const tt = wt.getAttribute('__type');
-              if (tt === 'paragraph' || tt === 'heading') blockIndex++;
-            }
-            walker = walker.right;
+    const isElem = typeNode instanceof Y.XmlElement;
+    const typeName = isElem ? typeNode.getAttribute('__type') : null;
+    const visibleLen = isElem && (typeName === 'paragraph' || typeName === 'heading') ? typeNode.toString().length : 0;
+    if (isElem && (typeName === 'paragraph' || typeName === 'heading')) {
+      console.log('[da-she]  para at cum=' + cum + ' visibleLen=' + visibleLen + ' text="' + typeNode.toString().substring(0, 30) + '"');
+      if (cursorOffset >= cum && cursorOffset <= cum + visibleLen) {
+        let blockIndex = 0;
+        let walker = daSheRoot._start;
+        while (walker && walker !== current) {
+          const wt = walker.content?.type;
+          if (wt instanceof Y.XmlElement) {
+            const tt = wt.getAttribute('__type');
+            if (tt === 'paragraph' || tt === 'heading') blockIndex++;
           }
-          const blockOffset = Math.max(0, cursorOffset - cum);
-          return { blockIndex, blockOffset };
+          walker = walker.right;
         }
-        cum += visibleLen + 1;
+        const blockOffset = Math.max(0, cursorOffset - cum);
+        console.log('[da-she]  FOUND blockIndex=' + blockIndex + ' blockOffset=' + blockOffset);
+        return { blockIndex, blockOffset };
       }
+      cum += visibleLen + 1;
+    } else {
+      // log skipped items
+      console.log('[da-she]  skip:', isElem ? typeName : typeof typeNode, 'len=', typeNode?.length);
     }
     current = current.right;
   }
+  console.log('[da-she]  NOT FOUND, total cum=' + cum + ' cursorOffset=' + cursorOffset);
   return null;
 }
 
