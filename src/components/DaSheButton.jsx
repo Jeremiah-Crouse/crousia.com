@@ -30,7 +30,7 @@ export default function DaSheButton({ yText, awareness }) {
         if (absPos.index >= cum && absPos.index <= cum + len) {
           return { blockIndex: idx, blockOffset: absPos.index - cum };
         }
-        cum += len + 1;
+        cum += len;
       }
       idx++;
       current = current.right;
