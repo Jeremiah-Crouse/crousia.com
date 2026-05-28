@@ -70,23 +70,81 @@ function makePara() {
 
 function daSheWrite(text, cursor = null, advance = false) {
   if (!daSheRoot || !text) return cursor;
-  sharedDoc.transact(() => {
-    let para = null;
-    let relativeOffset = 0;
+  try {
+    sharedDoc.transact(() => {
+      let para = null;
+      let relativeOffset = 0;
 
-    if (cursor && typeof cursor.blockIndex === 'number') {
-      let idx = 0;
-      let current = daSheRoot._start;
-      while (current) {
-        const typeNode = current.content?.type;
-        if (typeNode instanceof Y.XmlText || typeNode instanceof Y.XmlElement) {
-          if (idx === cursor.blockIndex) {
-            para = typeNode;
-            relativeOffset = typeof cursor.blockOffset === 'number' && cursor.blockOffset >= 0
-              ? Math.max(0, Math.min(para.length, cursor.blockOffset))
-              : para.length;
-            break;
+      if (cursor && typeof cursor.blockIndex === 'number') {
+        let idx = 0;
+        let current = daSheRoot._start;
+        while (current) {
+          const typeNode = current.content?.type;
+          if (typeNode instanceof Y.XmlText || typeNode instanceof Y.XmlElement) {
+            if (idx === cursor.blockIndex) {
+              para = typeNode;
+              const bo = typeof cursor.blockOffset === 'number' && cursor.blockOffset >= 0 ? cursor.blockOffset : para.length;
+              relativeOffset = Math.min(para.length, bo);
+              break;
+            }
+            idx++;
           }
+          current = current.right;
+        }
+      }
+
+      // Fallback: find the last paragraph if cursor not found
+      if (!para) {
+        let current = daSheRoot._start;
+        while (current) {
+          const typeNode = current.content?.type;
+          if (typeNode instanceof Y.XmlText || typeNode instanceof Y.XmlElement) {
+            const type = typeNode.getAttribute('__type');
+            if (type === 'paragraph' || type === 'heading') para = typeNode;
+          }
+          current = current.right;
+        }
+        if (para) relativeOffset = para.length;
+      }
+
+      if (!para) {
+        para = makePara();
+        daSheRoot.insertEmbed(daSheRoot._length, para);
+        relativeOffset = 0;
+      }
+
+      para.insert(relativeOffset, text);
+      if (advance && cursor) {
+        cursor.blockOffset = relativeOffset + text.length;
+      }
+    }, 'da-she');
+  } catch (e) {
+    console.error('[da-she] write error:', e);
+  }
+  return cursor;
+}
+
+// Cursor walker: use visible text length (toString) instead of Yjs length
+// to match Lexical's getTextContentSize() — avoids embedded-object inflation
+function daSheCursorOffset(cursorOffset) {
+  if (cursorOffset == null || !daSheRoot) return null;
+  let cum = 0;
+  let current = daSheRoot._start;
+  while (current) {
+    const typeNode = current.content?.type;
+    if (typeNode instanceof Y.XmlText || typeNode instanceof Y.XmlElement) {
+      const visibleLen = typeNode.toString().length;
+      if (cursorOffset >= cum && cursorOffset <= cum + visibleLen) {
+        const blockIndex = [...daSheRoot._start].filter(i => i.content?.type instanceof Y.XmlText || i.content?.type instanceof Y.XmlElement).indexOf(current);
+        const blockOffset = Math.max(0, cursorOffset - cum);
+        return { blockIndex, blockOffset };
+      }
+      cum += visibleLen + 1;
+    }
+    current = current.right;
+  }
+  return null;
+}
           idx++;
         }
         current = current.right;
@@ -702,7 +760,15 @@ app.post('/api/da-she/generate', express.json(), async (req, res) => {
   let reasoningParts = new Set();
   let textParts = new Set();
   let deltaBuf = [];
-  let currentCursor = (cursor && typeof cursor.blockIndex === 'number') ? { blockIndex: cursor.blockIndex, blockOffset: cursor.blockOffset } : null;
+  let currentCursor = null;
+  if (cursor != null) {
+    if (typeof cursor === 'number') {
+      // Cumulative character offset — convert using visible text length
+      currentCursor = daSheCursorOffset(cursor);
+    } else if (typeof cursor.blockIndex === 'number') {
+      currentCursor = { blockIndex: cursor.blockIndex, blockOffset: cursor.blockOffset };
+    }
+  }
 
   const flushBuf = () => {
     deltaBuf = deltaBuf.filter(({ partID, delta }) => {

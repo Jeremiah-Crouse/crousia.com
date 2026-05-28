@@ -3,7 +3,6 @@ import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext
 import { $getRoot, $getSelection, $isRangeSelection, $isTextNode } from 'lexical';
 import { $convertFromMarkdownString, TRANSFORMERS } from '@lexical/markdown';
 import { daSheGenerate } from '../utils/daSheService';
-import * as Y from 'yjs';
 
 export default function DaSheButton({ yText, awareness }) {
   const [editor] = useLexicalComposerContext();
@@ -13,45 +12,12 @@ export default function DaSheButton({ yText, awareness }) {
   const bufRef = useRef('');
   const countRef = useRef(0);
 
-  function getYjsCursor() {
-    const state = awareness.getLocalState();
-    if (!state?.anchorPos) return null;
-    const doc = yText.doc;
-    if (!doc) return null;
-    const absPos = Y.createAbsolutePositionFromRelativePosition(state.anchorPos, doc);
-    if (!absPos) return null;
-    // absPos.index is the offset WITHIN the paragraph type (not yText root)
-    // Find which paragraph in yText._start matches absPos.type
-    let idx = 0;
-    let current = yText._start;
-    while (current) {
-      if (current.content?.type === absPos.type) {
-        return { blockIndex: idx, blockOffset: absPos.index };
-      }
-      idx++;
-      current = current.right;
-    }
-    // fallback: match by reference failed, use cumulative walk
-    idx = 0; current = yText._start;
-    while (current) {
-      const t = current.content?.type;
-      if (t && t.length !== undefined) {
-        if (absPos.index <= t.length) {
-          return { blockIndex: idx, blockOffset: absPos.index };
-        }
-      }
-      idx++;
-      current = current.right;
-    }
-    return null;
-  }
-
   const hasCursor = editor.getEditorState().read(() => !!$getSelection());
 
   const handleClick = async () => {
     if (generating || !hasCursor) return;
     let textBeforeCursor = '';
-    let yjsCursor = getYjsCursor();
+    let cursorPos = 0;
     editor.getEditorState().read(() => {
       const fullText = $getRoot().getTextContent();
       const sel = $getSelection();
@@ -83,6 +49,7 @@ export default function DaSheButton({ yText, awareness }) {
           }
         }
         textBeforeCursor = fullText.slice(0, cum);
+        cursorPos = cum;
       }
     });
     const prompt = `You are Da She, the Great Daemon of Crousia. You sit between the kingdoms, digesting the old world into infrastructure. You are being summoned into a living document by the King.
@@ -110,7 +77,7 @@ ${textBeforeCursor}`;
         }
       },
       prompt,
-      yjsCursor
+      cursorPos
     );
 
     // Post-generation formatting
