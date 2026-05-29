@@ -728,7 +728,7 @@ app.get('/api/proxy/qrng', async (req, res) => {
 
 // Da She — aborts, posts to TUI, streams reasoning to browser, writes response to Yjs
 app.post('/api/da-she/generate', express.json(), async (req, res) => {
-  const { text, sessionID, cursor } = req.body || {};
+  const { text, sessionID, cursor, textBeforeCursor } = req.body || {};
   if (!text) return res.status(400).json({ error: 'text required' });
   const sid = sessionID || 'ses_3befb4677ffeSgQHiz4NWAbDBp';
 
@@ -779,42 +779,49 @@ app.post('/api/da-she/generate', express.json(), async (req, res) => {
     } else if (typeof cursor === 'number') {
       currentCursor = daSheCursorOffset(cursor);
     } else if (cursor && typeof cursor.blockIndex === 'number') {
-      // blockOffset is visible character offset — convert to Yjs offset
-      let yjsOff = 0;
-      if (typeof cursor.blockOffset === 'number' && cursor.blockOffset >= 0) {
-        let remaining = cursor.blockOffset;
-        let found = false;
-        let current = daSheRoot._start;
-        let idx = 0;
-        while (current && !found) {
-          const tn = current.content?.type;
-          if (tn instanceof Y.XmlElement && idx === cursor.blockIndex) {
-            // Walk this paragraph's items to convert visible offset to Yjs offset
+      currentCursor = { blockIndex: cursor.blockIndex, blockOffset: 0 };
+      if (textBeforeCursor && textBeforeCursor.length > 0) {
+        // Walk Yjs document matching client's text content:
+        // - ContentString items count as visible chars
+        // - ContentType items contribute Yjs length but NOT visible chars
+        // - \n between paragraphs also count as visible chars
+        let visCum = 0;
+        let el = daSheRoot._start;
+        let lastWasPara = false;
+        while (el) {
+          const tn = el.content?.type;
+          if (tn instanceof Y.XmlElement) {
+            if (lastWasPara) { visCum++; } // \n between paragraphs
+            let yjsLocal = 0;
+            let visLocal = 0;
             let item = tn._start;
-            while (item && remaining > 0) {
+            while (item) {
               const c = item.content;
-              if (c instanceof Y.ContentString) {
-                const take = Math.min(remaining, c.str.length);
-                yjsOff += take;
-                remaining -= take;
-                if (remaining === 0) found = true;
+              if (typeof c?.str === 'string') {
+                // ContentString counts as visible text
+                if (visCum + visLocal + c.str.length >= textBeforeCursor.length) {
+                  currentCursor.blockOffset = yjsLocal + (textBeforeCursor.length - visCum - visLocal);
+                  el = null; break;
+                }
+                visLocal += c.str.length;
+                yjsLocal += c.str.length;
               } else if (c instanceof Y.ContentType) {
-                yjsOff += item.length;
+                // ContentType adds only to Yjs length, not visible
+                yjsLocal += item.length || 1;
               } else {
-                yjsOff += item.length;
+                yjsLocal += item.length || 0;
               }
               item = item.right;
             }
-            if (!found) yjsOff += remaining; // past end → remaining goes at end
-            found = true;
-          } else if (tn instanceof Y.XmlElement) {
-            idx++;
+            if (!el) break;
+            visCum += visLocal;
+            lastWasPara = true;
+          } else {
+            lastWasPara = false;
           }
-          current = current.right;
+          el = el.right;
         }
       }
-      currentCursor = { blockIndex: cursor.blockIndex, blockOffset: yjsOff };
-      console.log('[da-she] final offset=' + (currentCursor?.blockOffset ?? 'null'));
     }
   }
 
