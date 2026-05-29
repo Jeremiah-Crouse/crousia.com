@@ -728,7 +728,7 @@ app.get('/api/proxy/qrng', async (req, res) => {
 
 // Da She — aborts, posts to TUI, streams reasoning to browser, writes response to Yjs
 app.post('/api/da-she/generate', express.json(), async (req, res) => {
-  const { text, sessionID, cursor, textBeforeCursor } = req.body || {};
+  const { text, sessionID, cursor } = req.body || {};
   if (!text) return res.status(400).json({ error: 'text required' });
   const sid = sessionID || 'ses_3befb4677ffeSgQHiz4NWAbDBp';
 
@@ -811,43 +811,6 @@ app.post('/api/da-she/generate', express.json(), async (req, res) => {
             idx++;
           }
           current = current.right;
-        }
-      }
-      // Use textBeforeCursor to refine: search for the prefix in the paragraph's visible text
-      if (textBeforeCursor && textBeforeCursor.length > 0 && currentCursor) {
-        let idx = 0;
-        let cur = daSheRoot._start;
-        while (cur) {
-          const tn = cur.content?.type;
-          if (tn instanceof Y.XmlElement && idx === currentCursor.blockIndex) {
-            const visible = tn.toString();
-            const posInVisible = visible.indexOf(textBeforeCursor);
-            if (posInVisible >= 0) {
-              // Walk items to compute Yjs offset for (posInVisible + textBeforeCursor.length)
-              const targetVisible = posInVisible + textBeforeCursor.length;
-              let yjsOff2 = 0;
-              let rem = targetVisible;
-              let item = tn._start;
-              while (item && rem > 0) {
-                const c = item.content;
-                if (c instanceof Y.ContentString) {
-                  const take = Math.min(rem, c.str.length);
-                  yjsOff2 += take;
-                  rem -= take;
-                } else if (c instanceof Y.ContentType) {
-                  yjsOff2 += item.length;
-                } else {
-                  yjsOff2 += item.length;
-                }
-                item = item.right;
-              }
-              currentCursor.blockOffset = yjsOff2;
-              console.log('[da-she] refined via textBeforeCursor: yjsOffset=' + yjsOff2);
-            }
-            break;
-          }
-          if (tn instanceof Y.XmlElement) idx++;
-          cur = cur.right;
         }
       }
       console.log('[da-she] final offset=' + (currentCursor?.blockOffset ?? 'null'));
