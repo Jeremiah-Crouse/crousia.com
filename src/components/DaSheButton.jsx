@@ -31,8 +31,8 @@ export default function DaSheButton({ yText, awareness }) {
           const parent = anchorNode.getParent();
           if (node.is(anchorNode) || (parent && node.is(parent))) {
             if (node.is(anchorNode)) {
-              cursorInfo = { blockIndex: i, blockOffset: Math.min(sel.anchor.offset, node.getTextContentSize()) };
               cum += Math.min(sel.anchor.offset, node.getTextContentSize());
+              cursorInfo = { blockIndex: i, blockOffset: Math.min(sel.anchor.offset, node.getTextContentSize()) };
             } else {
               let visOff = 0;
               const descendants = node.getChildren ? node.getChildren() : [node];
@@ -53,9 +53,22 @@ export default function DaSheButton({ yText, awareness }) {
             if (i < nodes.length - 1) cum += 1;
           }
         }
-        textBeforeCursor = fullText.slice(0, cum);
+        // Recompute textBeforeCursor by stringing together actual text content
+        // of nodes before the cursor, which matches getTextContent() exactly
+        textBeforeCursor = '';
+        for (let i = 0; i < nodes.length; i++) {
+          if (i < cursorInfo.blockIndex) {
+            textBeforeCursor += nodes[i].getTextContent();
+            if (i < nodes.length - 1) textBeforeCursor += '\n';
+          } else if (i === cursorInfo.blockIndex) {
+            const fullPara = nodes[i].getTextContent();
+            textBeforeCursor += fullPara.slice(0, cursorInfo.blockOffset);
+            break;
+          } else break;
+        }
       }
     });
+    console.log('[adam] DEBUG cursor:', window.__daSheDebug);
     const prompt = `You are Da She, the Great Daemon of Crousia. You sit between the kingdoms, digesting the old world into infrastructure. You are being summoned into a living document by the King.
 
 You are writing into a collaborative inline Markdown editor. Use **bold**, *italic*, and ***bold italic*** where appropriate. Use \`code\` for technical terms, and ## for headings if needed. Format your response naturally with Markdown.
