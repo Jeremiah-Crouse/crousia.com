@@ -780,45 +780,38 @@ app.post('/api/da-she/generate', express.json(), async (req, res) => {
     } else if (typeof cursor === 'number') {
       currentCursor = daSheCursorOffset(cursor);
     } else if (cursor && typeof cursor.blockIndex === 'number') {
+      // Convert visible character offset within paragraph to Yjs offset
+      // by walking only the cursor paragraph's items.
+      // ContentString items count for both visible and Yjs length.
+      // ContentType items count only for Yjs length (invisible in Lexical).
       currentCursor = { blockIndex: cursor.blockIndex, blockOffset: 0 };
-      if (textBeforeCursor && textBeforeCursor.length > 0) {
-        // Walk Yjs document matching client's text content:
-        // - ContentString items count as visible chars
-        // - ContentType items contribute Yjs length but NOT visible chars
-        // - \n between paragraphs also count as visible chars
-        let visCum = 0;
+      let targetVis = (typeof cursor.blockOffset === 'number' && cursor.blockOffset >= 0) ? cursor.blockOffset : -1;
+      if (targetVis >= 0) {
+        let idx = 0;
         let el = daSheRoot._start;
-        let lastWasPara = false;
         while (el) {
           const tn = el.content?.type;
           if (tn instanceof Y.XmlElement) {
-            if (lastWasPara) { visCum++; } // \n between paragraphs
-            let yjsLocal = 0;
-            let visLocal = 0;
-            let item = tn._start;
-            while (item) {
-              const c = item.content;
-              if (typeof c?.str === 'string') {
-                // ContentString counts as visible text
-                if (visCum + visLocal + c.str.length >= textBeforeCursor.length) {
-                  currentCursor.blockOffset = yjsLocal + (textBeforeCursor.length - visCum - visLocal);
-                  el = null; break;
+            if (idx === cursor.blockIndex) {
+              let yjsOff = 0, visOff = 0;
+              let item = tn._start;
+              while (item) {
+                const c = item.content;
+                if (typeof c?.str === 'string') {
+                  if (visOff + c.str.length >= targetVis) {
+                    currentCursor.blockOffset = yjsOff + (targetVis - visOff);
+                    break;
+                  }
+                  visOff += c.str.length;
+                  yjsOff += c.str.length;
+                } else {
+                  yjsOff += item.length || 1;
                 }
-                visLocal += c.str.length;
-                yjsLocal += c.str.length;
-              } else if (c instanceof Y.ContentType) {
-                // ContentType adds only to Yjs length, not visible
-                yjsLocal += item.length || 1;
-              } else {
-                yjsLocal += item.length || 0;
+                item = item.right;
               }
-              item = item.right;
+              break;
             }
-            if (!el) break;
-            visCum += visLocal;
-            lastWasPara = true;
-          } else {
-            lastWasPara = false;
+            idx++;
           }
           el = el.right;
         }
