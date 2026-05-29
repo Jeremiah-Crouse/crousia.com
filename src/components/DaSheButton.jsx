@@ -83,7 +83,7 @@ ${textBeforeCursor}`;
         }
       },
       prompt,
-      cursorPos
+      encodedCursor
     );
 
     // Post-generation formatting
