@@ -3,7 +3,6 @@ import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext
 import { $getRoot, $getSelection, $isRangeSelection, $isTextNode } from 'lexical';
 import { $convertFromMarkdownString, TRANSFORMERS } from '@lexical/markdown';
 import { daSheGenerate } from '../utils/daSheService';
-import * as Y from 'yjs';
 
 export default function DaSheButton({ yText, awareness }) {
   const [editor] = useLexicalComposerContext();
@@ -15,16 +14,10 @@ export default function DaSheButton({ yText, awareness }) {
 
   const hasCursor = editor.getEditorState().read(() => !!$getSelection());
 
-  function getEncodedCursor() {
-    const state = awareness.getLocalState();
-    if (!state?.anchorPos) return null;
-    return Y.encodeRelativePosition(state.anchorPos);
-  }
-
   const handleClick = async () => {
     if (generating || !hasCursor) return;
     let textBeforeCursor = '';
-    let encodedCursor = getEncodedCursor();
+    let cursorInfo = null;
     editor.getEditorState().read(() => {
       const fullText = $getRoot().getTextContent();
       const sel = $getSelection();
@@ -37,6 +30,7 @@ export default function DaSheButton({ yText, awareness }) {
           const node = nodes[i];
           const parent = anchorNode.getParent();
           if (node.is(anchorNode) || (parent && node.is(parent))) {
+            cursorInfo = { blockIndex: i };
             if (node.is(anchorNode)) {
               cum += Math.min(sel.anchor.offset, node.getTextContentSize());
             } else {
@@ -83,7 +77,7 @@ ${textBeforeCursor}`;
         }
       },
       prompt,
-      encodedCursor
+      cursorInfo
     );
 
     // Post-generation formatting
