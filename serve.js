@@ -747,29 +747,74 @@ app.post('/api/da-she/generate', express.json(), async (req, res) => {
   let currentCursor = null;
   if (cursor != null) {
     if (Array.isArray(cursor)) {
-      // Yjs encoded relative position from client awareness
       try {
         const relPos = Y.decodeRelativePosition(new Uint8Array(cursor));
+        console.log('[da-she] decoded relPos type:', typeof relPos?.type, 'offset:', relPos?.offset);
         const absPos = Y.createAbsolutePositionFromRelativePosition(relPos, sharedDoc);
+        console.log('[da-she] absPos:', absPos ? 'type=' + typeof absPos.type + ' index=' + absPos.index : 'null');
         if (absPos) {
           let idx = 0;
           let cur = daSheRoot._start;
+          console.log('[da-she] searching daSheRoot._start for matching type...');
           while (cur) {
-            if (cur.content?.type === absPos.type) {
+            const ct = cur.content?.type;
+            if (ct) console.log('[da-she]  idx=' + idx + ' ct=' + typeof ct + ' match=' + (ct === absPos.type));
+            if (ct === absPos.type) {
               currentCursor = { blockIndex: idx, blockOffset: absPos.index };
+              console.log('[da-she] FOUND at idx=' + idx + ' offset=' + absPos.index);
               break;
             }
             idx++;
             cur = cur.right;
           }
+          if (!currentCursor) console.log('[da-she] type NOT FOUND in daSheRoot._start');
+        } else {
+          console.log('[da-she] absPos is null — fallback');
+          if (typeof cursor === 'number') currentCursor = daSheCursorOffset(cursor);
         }
       } catch (err) {
         console.error('[da-she] cursor decode error:', err.message);
+        if (typeof cursor === 'number') currentCursor = daSheCursorOffset(cursor);
       }
     } else if (typeof cursor === 'number') {
       currentCursor = daSheCursorOffset(cursor);
     } else if (cursor && typeof cursor.blockIndex === 'number') {
-      currentCursor = { blockIndex: cursor.blockIndex, blockOffset: cursor.blockOffset };
+      // blockOffset is visible character offset — convert to Yjs offset
+      let yjsOff = 0;
+      if (typeof cursor.blockOffset === 'number' && cursor.blockOffset >= 0) {
+        let remaining = cursor.blockOffset;
+        let found = false;
+        let current = daSheRoot._start;
+        let idx = 0;
+        while (current && !found) {
+          const tn = current.content?.type;
+          if (tn instanceof Y.XmlElement && idx === cursor.blockIndex) {
+            // Walk this paragraph's items to convert visible offset to Yjs offset
+            let item = tn._start;
+            while (item && remaining > 0) {
+              const c = item.content;
+              if (c instanceof Y.ContentString) {
+                const take = Math.min(remaining, c.str.length);
+                yjsOff += take;
+                remaining -= take;
+                if (remaining === 0) found = true;
+              } else if (c instanceof Y.ContentType) {
+                yjsOff += item.length;
+              } else {
+                yjsOff += item.length;
+              }
+              item = item.right;
+            }
+            if (!found) yjsOff += remaining; // past end → remaining goes at end
+            found = true;
+          } else if (tn instanceof Y.XmlElement) {
+            idx++;
+          }
+          current = current.right;
+        }
+      }
+      currentCursor = { blockIndex: cursor.blockIndex, blockOffset: yjsOff };
+      console.log('[da-she] visibleOffset=' + cursor.blockOffset + ' yjsOffset=' + yjsOff);
     }
   }
 

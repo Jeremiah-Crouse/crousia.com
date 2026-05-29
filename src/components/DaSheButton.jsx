@@ -30,18 +30,22 @@ export default function DaSheButton({ yText, awareness }) {
           const node = nodes[i];
           const parent = anchorNode.getParent();
           if (node.is(anchorNode) || (parent && node.is(parent))) {
-            cursorInfo = { blockIndex: i };
             if (node.is(anchorNode)) {
+              cursorInfo = { blockIndex: i, blockOffset: Math.min(sel.anchor.offset, node.getTextContentSize()) };
               cum += Math.min(sel.anchor.offset, node.getTextContentSize());
             } else {
+              let visOff = 0;
               const descendants = node.getChildren ? node.getChildren() : [node];
               for (const desc of descendants) {
                 if (desc.is(anchorNode)) {
+                  visOff += Math.min(sel.anchor.offset, desc.getTextContentSize());
                   cum += Math.min(sel.anchor.offset, desc.getTextContentSize());
                   break;
                 }
+                visOff += desc.getTextContentSize();
                 cum += desc.getTextContentSize();
               }
+              cursorInfo = { blockIndex: i, blockOffset: visOff };
             }
             found = true;
           } else {
