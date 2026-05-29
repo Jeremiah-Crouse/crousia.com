@@ -72,96 +72,58 @@ function daSheWrite(text, cursor = null, advance = false) {
   if (!daSheRoot || !text) return cursor;
   try {
     sharedDoc.transact(() => {
+      // 1. Gather all paragraph/heading blocks
+      const blocks = [];
+      let current = daSheRoot._start;
+      while (current) {
+        const typeNode = current.content?.type;
+        if (typeNode instanceof Y.XmlText || typeNode instanceof Y.XmlElement) {
+          const type = typeNode.getAttribute('__type');
+          if (type === 'paragraph' || type === 'heading') {
+            blocks.push(typeNode);
+          }
+        }
+        current = current.right;
+      }
+
       let para = null;
-      let relativeOffset = 0;
-
+      // 2. Identify the block where we want to insert
       if (cursor && typeof cursor.blockIndex === 'number') {
-        let idx = 0;
-        let current = daSheRoot._start;
-        while (current) {
-          const typeNode = current.content?.type;
-          if (typeNode instanceof Y.XmlText || typeNode instanceof Y.XmlElement) {
-            if (idx === cursor.blockIndex) {
-              para = typeNode;
-              const bo = typeof cursor.blockOffset === 'number' && cursor.blockOffset >= 0 ? cursor.blockOffset : para.length;
-              relativeOffset = Math.min(para.length, bo);
-              break;
-            }
-            idx++;
+        para = blocks[cursor.blockIndex] || null;
+      }
+
+      // 3. Fallback: if no paragraph matches or is specified, use the last block
+      if (!para) {
+        if (blocks.length > 0) {
+          para = blocks[blocks.length - 1];
+          if (cursor) {
+            cursor.blockIndex = blocks.length - 1;
+            cursor.blockOffset = para.length;
           }
-          current = current.right;
+        } else {
+          // If no blocks exist at all, create one
+          para = makePara();
+          daSheRoot.insertEmbed(daSheRoot.length, para);
+          if (cursor) {
+            cursor.blockIndex = 0;
+            cursor.blockOffset = 0;
+          }
         }
       }
 
-      // Fallback: find the last paragraph if cursor not found
-      if (!para) {
-        let current = daSheRoot._start;
-        while (current) {
-          const typeNode = current.content?.type;
-          if (typeNode instanceof Y.XmlText || typeNode instanceof Y.XmlElement) {
-            const type = typeNode.getAttribute('__type');
-            if (type === 'paragraph' || type === 'heading') para = typeNode;
-          }
-          current = current.right;
-        }
-        if (para) relativeOffset = para.length;
-      }
+      // 4. Insert the text at the correct block offset
+      const insertOffset = cursor ? Math.min(cursor.blockOffset || 0, para.length) : para.length;
+      para.insert(insertOffset, text);
 
-      if (!para) {
-        para = makePara();
-        daSheRoot.insertEmbed(daSheRoot._length, para);
-        relativeOffset = 0;
-      }
-
-      para.insert(relativeOffset, text);
+      // 5. Update cursor offset for subsequent deltas in the stream
       if (advance && cursor) {
-        cursor.blockOffset = relativeOffset + text.length;
+        cursor.blockOffset = insertOffset + text.length;
       }
     }, 'da-she');
   } catch (e) {
     console.error('[da-she] write error:', e);
   }
   return cursor;
-}
-
-// Cursor walker: use visible text length (toString) instead of Yjs length
-// to match Lexical's getTextContentSize() — avoids embedded-object inflation
-function daSheCursorOffset(cursorOffset) {
-  if (cursorOffset == null || !daSheRoot) return null;
-  let cum = 0;
-  let current = daSheRoot._start;
-  console.log('[da-she] cursorOffset received:', cursorOffset);
-  while (current) {
-    const typeNode = current.content?.type;
-    const isElem = typeNode instanceof Y.XmlElement;
-    const typeName = isElem ? typeNode.getAttribute('__type') : null;
-    const visibleLen = isElem && (typeName === 'paragraph' || typeName === 'heading') ? typeNode.toString().length : 0;
-    if (isElem && (typeName === 'paragraph' || typeName === 'heading')) {
-      console.log('[da-she]  para at cum=' + cum + ' visibleLen=' + visibleLen + ' text="' + typeNode.toString().substring(0, 30) + '"');
-      if (cursorOffset >= cum && cursorOffset <= cum + visibleLen) {
-        let blockIndex = 0;
-        let walker = daSheRoot._start;
-        while (walker && walker !== current) {
-          const wt = walker.content?.type;
-          if (wt instanceof Y.XmlElement) {
-            const tt = wt.getAttribute('__type');
-            if (tt === 'paragraph' || tt === 'heading') blockIndex++;
-          }
-          walker = walker.right;
-        }
-        const blockOffset = Math.max(0, cursorOffset - cum);
-        console.log('[da-she]  FOUND blockIndex=' + blockIndex + ' blockOffset=' + blockOffset);
-        return { blockIndex, blockOffset };
-      }
-      cum += visibleLen + 1;
-    } else {
-      // log skipped items
-      console.log('[da-she]  skip:', isElem ? typeName : typeof typeNode, 'len=', typeNode?.length);
-    }
-    current = current.right;
-  }
-  console.log('[da-she]  NOT FOUND, total cum=' + cum + ' cursorOffset=' + cursorOffset);
-  return null;
 }
 
 import multer from "multer";
@@ -382,8 +344,8 @@ const provider = new WebsocketProvider(
   { WebSocketPolyfill: WebSocket }
 );
 provider.on('sync', (synced) => {
-  daSheRoot = sharedDoc.get('root', Y.XmlText);
-  if (synced) console.log('[da-she] root XmlText ready, paragraphs:', daSheRoot._length);
+  daSheRoot = sharedDoc.get('crousia-editor', Y.XmlText);
+  if (synced) console.log('[da-she] crousia-editor XmlText ready, paragraphs:', daSheRoot._length);
 });
 
 app.use(express.json());
@@ -730,7 +692,7 @@ app.get('/api/proxy/qrng', async (req, res) => {
 app.post('/api/da-she/generate', express.json(), async (req, res) => {
   const { text, sessionID, cursor, textBeforeCursor } = req.body || {};
   if (!text) return res.status(400).json({ error: 'text required' });
-  const sid = sessionID || 'ses_3befb4677ffeSgQHiz4NWAbDBp';
+  const sid = sessionID || 'ses_1befb4677ffeSgQHiz4NWAbDBp';
 
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
@@ -744,97 +706,7 @@ app.post('/api/da-she/generate', express.json(), async (req, res) => {
   let reasoningParts = new Set();
   let textParts = new Set();
   let deltaBuf = [];
-  let currentCursor = null;
-  console.log('[da-she] cursor type:', typeof cursor, JSON.stringify(cursor).slice(0, 80));
-  if (cursor != null) {
-    if (Array.isArray(cursor)) {
-      try {
-        const relPos = Y.decodeRelativePosition(new Uint8Array(cursor));
-        console.log('[da-she] decoded relPos type:', typeof relPos?.type, 'offset:', relPos?.offset);
-        const absPos = Y.createAbsolutePositionFromRelativePosition(relPos, sharedDoc);
-        console.log('[da-she] absPos:', absPos ? 'type=' + typeof absPos.type + ' index=' + absPos.index : 'null');
-        if (absPos) {
-          let idx = 0;
-          let cur = daSheRoot._start;
-          console.log('[da-she] searching daSheRoot._start for matching type...');
-          while (cur) {
-            const ct = cur.content?.type;
-            if (ct) console.log('[da-she]  idx=' + idx + ' ct=' + typeof ct + ' match=' + (ct === absPos.type));
-            if (ct === absPos.type) {
-              currentCursor = { blockIndex: idx, blockOffset: absPos.index };
-              console.log('[da-she] FOUND at idx=' + idx + ' offset=' + absPos.index);
-              break;
-            }
-            idx++;
-            cur = cur.right;
-          }
-          if (!currentCursor) console.log('[da-she] type NOT FOUND in daSheRoot._start');
-        } else {
-          console.log('[da-she] absPos is null — fallback');
-          if (typeof cursor === 'number') currentCursor = daSheCursorOffset(cursor);
-        }
-      } catch (err) {
-        console.error('[da-she] cursor decode error:', err.message);
-        if (typeof cursor === 'number') currentCursor = daSheCursorOffset(cursor);
-      }
-    } else if (typeof cursor === 'number') {
-      currentCursor = daSheCursorOffset(cursor);
-    } else if (cursor && typeof cursor.blockIndex === 'number') {
-      // Log structure for debugging
-      let debugStruct = [];
-      let de = daSheRoot._start;
-      while (de) {
-        const tn = de.content?.type;
-        if (tn instanceof Y.XmlElement) {
-          const items = [];
-          let di = tn._start;
-          while (di) {
-            const dc = di.content;
-            items.push(typeof dc?.str === 'string' ? 'str(' + dc.str + ')' : (dc instanceof Y.ContentType ? 'decorator' : 'other'));
-            di = di.right;
-          }
-          debugStruct.push('para: ' + items.join(', '));
-        }
-        de = de.right;
-      }
-      console.log('[da-she] Yjs structure:', JSON.stringify(debugStruct));
-      console.log('[da-she] cursor blockIndex=' + cursor.blockIndex + ' blockOffset=' + cursor.blockOffset);
-
-      currentCursor = { blockIndex: cursor.blockIndex, blockOffset: 0 };
-      let targetVis = (typeof cursor.blockOffset === 'number' && cursor.blockOffset >= 0) ? cursor.blockOffset : -1;
-      if (targetVis >= 0) {
-        let idx = 0;
-        let el = daSheRoot._start;
-        while (el) {
-          const tn = el.content?.type;
-          if (tn instanceof Y.XmlElement) {
-            if (idx === cursor.blockIndex) {
-              let yjsOff = 0, visOff = 0;
-              let item = tn._start;
-              while (item) {
-                const c = item.content;
-                if (typeof c?.str === 'string') {
-                  if (visOff + c.str.length >= targetVis) {
-                    currentCursor.blockOffset = yjsOff + (targetVis - visOff);
-                    break;
-                  }
-                  visOff += c.str.length;
-                  yjsOff += c.str.length;
-                } else {
-                  yjsOff += item.length || 1;
-                }
-                item = item.right;
-              }
-              break;
-            }
-            idx++;
-          }
-          el = el.right;
-        }
-        console.log('[da-she] computed blockOffset=' + currentCursor.blockOffset);
-      }
-    }
-  }
+  let currentCursor = cursor ? { blockIndex: cursor.blockIndex, blockOffset: cursor.blockOffset } : null;
 
   const flushBuf = () => {
     deltaBuf = deltaBuf.filter(({ partID, delta }) => {
@@ -844,7 +716,7 @@ app.post('/api/da-she/generate', express.json(), async (req, res) => {
       }
       if (partID && textParts.has(partID)) {
         deltaCount++;
-        daSheWrite(delta, currentCursor, true);
+        // daSheWrite(delta, currentCursor, true); // Handled live by client editor insertion
         res.write(`data: ${JSON.stringify({ delta })}\n\n`);
         return false;
       }
@@ -884,7 +756,7 @@ app.post('/api/da-she/generate', express.json(), async (req, res) => {
           res.write(`data: ${JSON.stringify({ delta, type: 'reasoning' })}\n\n`);
         } else if (partID && textParts.has(partID)) {
           deltaCount++;
-        daSheWrite(delta, currentCursor, true);
+          // daSheWrite(delta, currentCursor, true); // Handled live by client editor insertion
           res.write(`data: ${JSON.stringify({ delta })}\n\n`);
         } else {
           // Unknown partID — buffer until part.updated tells us the type

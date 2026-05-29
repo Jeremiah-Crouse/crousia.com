@@ -5,4 +5,4 @@ if tmux has-session -t tui 2>/dev/null; then
 fi
 tmux new-session -d -s tui
 sleep 0.3
-tmux send-keys -t tui '/home/ubuntu/crousia.com/opencode.sh' Enter
+tmux send-keys -t tui '/home/ubuntu/dragon.sh' Enter

@@ -54,7 +54,7 @@ export const getSharedProvider = ({ readonly = false, username = "guest" } = {})
     const hostname = window.location.hostname;
     const host = (hostname === 'localhost' || hostname === '127.0.0.1') ? 'localhost:1234' : 'qwert.crousia.com';
     provider = new WebsocketProvider(`${protocol}://${host}/ysl`, "crousia-shared-room", doc, {
-      connect: false,
+      connect: true,
     });
 
     provider.on("status", (event) => console.log("🌟 Yjs Provider status:", event.status));

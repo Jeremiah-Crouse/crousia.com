@@ -19,52 +19,61 @@ export default function DaSheButton({ yText, awareness }) {
     let textBeforeCursor = '';
     let cursorInfo = null;
     editor.getEditorState().read(() => {
-      const fullText = $getRoot().getTextContent();
+      const root = $getRoot();
       const sel = $getSelection();
       if ($isRangeSelection(sel)) {
         const anchorNode = sel.anchor.getNode();
-        const nodes = $getRoot().getChildren();
-        let cum = 0;
-        let found = false;
-        for (let i = 0; i < nodes.length && !found; i++) {
-          const node = nodes[i];
-          const parent = anchorNode.getParent();
-          if (node.is(anchorNode) || (parent && node.is(parent))) {
-            if (node.is(anchorNode)) {
-              cum += Math.min(sel.anchor.offset, node.getTextContentSize());
-              cursorInfo = { blockIndex: i, blockOffset: Math.min(sel.anchor.offset, node.getTextContentSize()) };
-            } else {
-              let visOff = 0;
-              const descendants = node.getChildren ? node.getChildren() : [node];
-              for (const desc of descendants) {
-                if (desc.is(anchorNode)) {
-                  visOff += Math.min(sel.anchor.offset, desc.getTextContentSize());
-                  cum += Math.min(sel.anchor.offset, desc.getTextContentSize());
-                  break;
-                }
-                visOff += desc.getTextContentSize();
-                cum += desc.getTextContentSize();
-              }
-              cursorInfo = { blockIndex: i, blockOffset: visOff };
-            }
-            found = true;
-          } else {
-            cum += node.getTextContentSize();
-            if (i < nodes.length - 1) cum += 1;
-          }
+        const children = root.getChildren();
+        
+        // Find the top-level block node (direct child of root)
+        let topLevelBlock = anchorNode;
+        while (topLevelBlock && topLevelBlock.getParent() !== root) {
+          topLevelBlock = topLevelBlock.getParent();
         }
-        // Recompute textBeforeCursor by stringing together actual text content
-        // of nodes before the cursor, which matches getTextContent() exactly
-        textBeforeCursor = '';
-        for (let i = 0; i < nodes.length; i++) {
-          if (i < cursorInfo.blockIndex) {
-            textBeforeCursor += nodes[i].getTextContent();
-            if (i < nodes.length - 1) textBeforeCursor += '\n';
-          } else if (i === cursorInfo.blockIndex) {
-            const fullPara = nodes[i].getTextContent();
-            textBeforeCursor += fullPara.slice(0, cursorInfo.blockOffset);
-            break;
-          } else break;
+        
+        if (topLevelBlock) {
+          const blockIndex = children.indexOf(topLevelBlock);
+          
+          // Calculate character offset within the top-level block
+          let blockOffset = 0;
+          let found = false;
+          
+          function walk(node) {
+            if (found) return;
+            if (node.is(anchorNode)) {
+              blockOffset += sel.anchor.offset;
+              found = true;
+              return;
+            }
+            if ($isTextNode(node)) {
+              blockOffset += node.getTextContentSize();
+              return;
+            }
+            if (node.getChildren) {
+              const kids = node.getChildren();
+              for (const kid of kids) {
+                walk(kid);
+                if (found) return;
+              }
+            }
+          }
+          
+          walk(topLevelBlock);
+          cursorInfo = { blockIndex, blockOffset };
+          
+          // Recompute textBeforeCursor by stringing together actual text content
+          // of nodes before the cursor
+          textBeforeCursor = '';
+          for (let i = 0; i < children.length; i++) {
+            if (i < blockIndex) {
+              textBeforeCursor += children[i].getTextContent();
+              if (i < children.length - 1) textBeforeCursor += '\n';
+            } else if (i === blockIndex) {
+              const fullPara = children[i].getTextContent();
+              textBeforeCursor += fullPara.slice(0, blockOffset);
+              break;
+            } else break;
+          }
         }
       }
     });
