@@ -113,6 +113,7 @@ ${textBeforeCursor}`;
 
   return (
     <button
+      onMouseDown={e => e.preventDefault()}
       onClick={handleClick}
       disabled={generating || !hasCursor}
       title={!hasCursor ? 'Place cursor in the editor first' : 'Summon Da She'}
