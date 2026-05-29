@@ -6,7 +6,7 @@ export async function daSheGenerate(editor, awareness, onStatus, onReasoning, pr
     const res = await fetch('/api/da-she/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: prompt, cursor: cursor instanceof Uint8Array ? Array.from(cursor) : cursor }),
+      body: JSON.stringify({ text: prompt, cursor: cursor instanceof Uint8Array ? Array.from(cursor) : cursor, textBeforeCursor }),
     });
 
     if (!res.ok) throw new Error(`API error: ${res.status}`);
