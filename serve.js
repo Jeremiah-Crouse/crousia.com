@@ -813,6 +813,7 @@ app.post('/api/da-she/generate', express.json(), async (req, res) => {
           current = current.right;
         }
       }
+      currentCursor = { blockIndex: cursor.blockIndex, blockOffset: yjsOff };
       console.log('[da-she] final offset=' + (currentCursor?.blockOffset ?? 'null'));
     }
   }
