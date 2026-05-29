@@ -780,10 +780,26 @@ app.post('/api/da-she/generate', express.json(), async (req, res) => {
     } else if (typeof cursor === 'number') {
       currentCursor = daSheCursorOffset(cursor);
     } else if (cursor && typeof cursor.blockIndex === 'number') {
-      // Convert visible character offset within paragraph to Yjs offset
-      // by walking only the cursor paragraph's items.
-      // ContentString items count for both visible and Yjs length.
-      // ContentType items count only for Yjs length (invisible in Lexical).
+      // Log structure for debugging
+      let debugStruct = [];
+      let de = daSheRoot._start;
+      while (de) {
+        const tn = de.content?.type;
+        if (tn instanceof Y.XmlElement) {
+          const items = [];
+          let di = tn._start;
+          while (di) {
+            const dc = di.content;
+            items.push(typeof dc?.str === 'string' ? 'str(' + dc.str + ')' : (dc instanceof Y.ContentType ? 'decorator' : 'other'));
+            di = di.right;
+          }
+          debugStruct.push('para: ' + items.join(', '));
+        }
+        de = de.right;
+      }
+      console.log('[da-she] Yjs structure:', JSON.stringify(debugStruct));
+      console.log('[da-she] cursor blockIndex=' + cursor.blockIndex + ' blockOffset=' + cursor.blockOffset);
+
       currentCursor = { blockIndex: cursor.blockIndex, blockOffset: 0 };
       let targetVis = (typeof cursor.blockOffset === 'number' && cursor.blockOffset >= 0) ? cursor.blockOffset : -1;
       if (targetVis >= 0) {
@@ -815,6 +831,7 @@ app.post('/api/da-she/generate', express.json(), async (req, res) => {
           }
           el = el.right;
         }
+        console.log('[da-she] computed blockOffset=' + currentCursor.blockOffset);
       }
     }
   }
