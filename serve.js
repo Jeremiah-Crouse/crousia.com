@@ -745,6 +745,7 @@ app.post('/api/da-she/generate', express.json(), async (req, res) => {
   let textParts = new Set();
   let deltaBuf = [];
   let currentCursor = null;
+  console.log('[da-she] cursor type:', typeof cursor, JSON.stringify(cursor).slice(0, 80));
   if (cursor != null) {
     if (Array.isArray(cursor)) {
       try {
