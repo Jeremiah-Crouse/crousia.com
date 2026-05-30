@@ -17,6 +17,7 @@ import { LinkNode } from "@lexical/link";
 import { ImageNode } from "./ImageNode";
 import ImagePlugin from "./ImagePlugin";
 import DaSheButton from "./DaSheButton";
+import DaSheButtonUser from "./DaSheButtonUser";
 import {
   getSharedDoc,
   getSharedProvider,
@@ -243,7 +244,11 @@ export default function Editor({ onH2Found }) {
         <AutoSavePlugin />
         {!readonly && (
           <div className="toolbar" style={{ borderBottom: 'none', marginBottom: 0, display: 'flex', alignItems: 'center' }}>
-            <DaSheButton yText={yText} awareness={awareness} />
+            {username === 'Da She' ? (
+              <DaSheButton yText={yText} awareness={awareness} />
+            ) : (
+              <DaSheButtonUser />
+            )}
             <SummarizeButton />
           </div>
         )}

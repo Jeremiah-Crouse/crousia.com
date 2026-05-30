@@ -345,7 +345,24 @@ const provider = new WebsocketProvider(
 );
 provider.on('sync', (synced) => {
   daSheRoot = sharedDoc.get('crousia-editor', Y.XmlText);
-  if (synced) console.log('[da-she] crousia-editor XmlText ready, paragraphs:', daSheRoot._length);
+  if (synced) {
+    // Seed root with an empty paragraph if none exists (so new Yjs databases have a first paragraph)
+    const root = sharedDoc.get('root', Y.XmlText);
+    if (root._length === 0) {
+      const para = new Y.XmlText();
+      para.setAttribute('__type', 'paragraph');
+      const fmt = new Y.Map();
+      fmt.set('__type', 'text');
+      fmt.set('__format', 0);
+      fmt.set('__style', '');
+      fmt.set('__mode', 0);
+      fmt.set('__detail', 0);
+      para.insertEmbed(0, fmt);
+      root.insertEmbed(0, para);
+      console.log('[seed] Created empty Lexical paragraph in root');
+    }
+    console.log('[da-she] crousia-editor XmlText ready, paragraphs:', daSheRoot._length);
+  }
 });
 
 app.use(express.json());
@@ -686,6 +703,55 @@ app.get('/api/proxy/qrng', async (req, res) => {
     console.error('QRNG Proxy Error:', error.message);
     res.status(502).json({ error: 'Failed to fetch quantum randomness' });
   }
+});
+
+// Da She Daemon — launches da-she-click.mjs, streams reasoning back via SSE
+app.post('/api/da-she-daemon', express.json(), async (req, res) => {
+  const { blockIndex, blockOffset } = req.body || {};
+  if (typeof blockIndex !== 'number' || typeof blockOffset !== 'number')
+    return res.status(400).json({ error: 'blockIndex and blockOffset required' });
+
+  const { execFile } = await import('child_process');
+
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+  });
+
+  // Run the click script (positions cursor + clicks button in persistent Chrome)
+  execFile('/home/ubuntu/.nvm/versions/node/v22.22.2/bin/node',
+    ['/home/ubuntu/da-she-click.mjs', String(blockIndex), String(blockOffset)],
+    { timeout: 10000, cwd: '/home/ubuntu' },
+    (err) => { if (err) console.error('[daemon] Script error:', err.message); }
+  );
+
+  // Subscribe to Da She's SSE stream and forward reasoning tokens
+  let done = false;
+  const remove = addSSEListener((ev) => {
+    if (done) return;
+    try {
+      if (ev.type === 'message.part.delta' && ev.properties?.delta) {
+        if (ev.properties.delta && ev.properties.delta.length < 200) {
+          res.write(`data: ${JSON.stringify({ delta: ev.properties.delta, type: 'reasoning' })}\n\n`);
+        }
+        if (ev.properties.delta && ev.properties.delta.length >= 200) {
+          res.write(`data: ${JSON.stringify({ delta: ev.properties.delta, type: 'text' })}\n\n`);
+        }
+      }
+      if (ev.type === 'session.idle') {
+        done = true;
+        res.write('data: [DONE]\n\n');
+        res.end();
+        remove();
+      }
+    } catch (e) {}
+  });
+
+  // Timeout after 60 seconds
+  setTimeout(() => {
+    if (!done) { done = true; remove(); res.end(); }
+  }, 60000);
 });
 
 // Da She — aborts, posts to TUI, streams reasoning to browser, writes response to Yjs
